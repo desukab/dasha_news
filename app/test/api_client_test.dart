@@ -7,8 +7,6 @@ import 'package:http/testing.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:dasha_news/core/api_client.dart';
-import 'package:dasha_news/models/page.dart';
-import 'package:dasha_news/models/story.dart';
 
 /// The client is the app's only seam against the newsroom, so its error
 /// mapping is what decides whether a reader sees "offline" or "something went
@@ -56,8 +54,7 @@ void main() {
   test('a socket failure becomes an offline error, not a crash', () async {
     final api = client(MockClient((_) async => throw const SocketException('')));
 
-    expectLater(api.feed(language: 'te'), throwsA(isA<ApiException>()))
-        .then((_) {});
+    await expectLater(api.feed(language: 'te'), throwsA(isA<ApiException>()));
     try {
       await api.feed(language: 'te');
       fail('expected an ApiException');

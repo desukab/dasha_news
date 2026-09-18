@@ -67,6 +67,7 @@ void main() {
     });
     await list.refresh();
     await list.loadMore();
+    expect(calls, 2);
     expect(list.items.map((s) => s.id), [1]);
     expect(list.error?.isOffline, isTrue);
     expect(list.isHardEmpty, isFalse);
@@ -74,7 +75,7 @@ void main() {
   });
 
   test('a hard failure on the first load leaves nothing to show', () async {
-    final list = PagedList((page) async => throw ApiException(400, 'bad'));
+    final list = PagedList((page) async => throw const ApiException(400, 'bad'));
     await list.refresh();
     expect(list.items, isEmpty);
     expect(list.isHardEmpty, isTrue);
