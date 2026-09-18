@@ -220,6 +220,13 @@ def list_stories(request: Request, db: Session = Depends(get_db),
                     total, page, page_size)
 
 
+@router.get("/stories/{story_id}")
+def get_story(story_id: int, user: User = Depends(require_user),
+              db: Session = Depends(get_db)) -> Any:
+    """One story with everything the desk needs to decide on it."""
+    return to_story_detail(db, _story_or_404(db, story_id)).model_dump()
+
+
 @router.post("/stories", status_code=status.HTTP_201_CREATED)
 def create_story(request: Request, db: Session = Depends(get_db),
                  user: User = Depends(require_editor),

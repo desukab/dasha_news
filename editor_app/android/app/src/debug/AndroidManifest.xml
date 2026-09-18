@@ -1,0 +1,14 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The INTERNET permission is required for development. Specifically,
+         the Flutter tool needs it to communicate with the running application
+         to allow setting breakpoints, to provide hot reload, etc.
+    -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- The newsroom's development address is plain HTTP on the emulator's
+         alias for the host's loopback interface (10.0.2.2), and Android blocks
+         cleartext by default from API 28. A deployed newsroom is served over
+         HTTPS and does not need this; it lives in the debug manifest only so
+         that it never reaches a release build.
+    -->
+    <application android:usesCleartextTraffic="true"/>
+</manifest>

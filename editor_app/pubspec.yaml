@@ -1,0 +1,31 @@
+name: dasha_editor
+description: >-
+  The private newsroom app for Dasha News: the desk's queue, the three-language
+  story editor, the automated pipeline's failures, and account management.
+  Not a consumer application. Requires a newsroom account; ships with no
+  credentials of any kind.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management (BSD-3-Clause).
+  provider: ^6.1.2
+  # Networking (BSD-3-Clause).
+  http: ^1.2.2
+  # Local key-value persistence: the session token and the newsroom address.
+  # (BSD-3-Clause).
+  shared_preferences: ^2.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
