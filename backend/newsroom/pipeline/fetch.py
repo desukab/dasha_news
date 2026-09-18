@@ -89,7 +89,7 @@ def fetch(url: str, *, max_bytes: Optional[int] = None) -> SafeResponse:
                                         int((time.monotonic() - started) * 1000),
                                         _headers(response))
                 body = bytearray()
-                for chunk in response.aiter_bytes(64 * 1024):
+                for chunk in response.iter_bytes(64 * 1024):
                     body.extend(chunk)
                     if len(body) > limit:
                         raise FetchLimitExceeded(
