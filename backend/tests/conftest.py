@@ -29,6 +29,15 @@ def isolated_settings(tmp_path, monkeypatch):
     media_dir = tmp_path / "media"
 
     get_settings.cache_clear()
+    # A deployment's real backend/.env (admin key, bootstrap password) must
+    # never leak into the suite. Pydantic reads the env file as well as the
+    # environment, so deleting an env var alone does not isolate a test; point
+    # the file away too. Env vars set below still win over the empty file.
+    from newsroom.config import Settings
+
+    monkeypatch.setitem(
+        Settings.model_config, "env_file", str(tmp_path / "no-such-file.env")
+    )
     monkeypatch.setenv("DATABASE_KIND", "sqlite")
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_file}")
     monkeypatch.setenv("MEDIA_DIR", str(media_dir))

@@ -52,7 +52,7 @@ OpenAI-compatible endpoint or local Ollama instance works, and **no paid
 API is required** — the application runs without one.
 
 ```bash
-pytest                            # 151 tests
+pytest                            # 200 tests
 ```
 
 ## Reader app
@@ -81,10 +81,25 @@ rather than trusting the language setting.
 
 ## Configuration
 
-`.env.example` lists every variable the newsroom reads; no secret is
-committed. The app points at `http://10.0.2.2:8000` by default (the
-emulator's alias for the host loopback) and the base URL is editable in
-Profile for readers who host their own instance.
+The newsroom reads `backend/.env`; copy the template there and edit it:
+
+```bash
+cp .env.example backend/.env
+python scripts/rotate_newsroom_secrets.py   # sets real NEWSROOM_SECRET + ADMIN_API_KEY
+python scripts/rotate_newsroom_secrets.py --bootstrap owner@example.news
+```
+
+No secret is committed. The two security values are the ones that matter:
+`ADMIN_API_KEY` gates every `/admin` action and `NEWSROOM_SECRET` signs the
+admin console's time-scoped tokens. Their shipped defaults are published in
+this repository, so the newsroom **refuses to administer itself while either is
+still set** — every `/admin` request answers 503 until they are replaced, and
+readers are served unaffected. The console warns about the same condition, but
+a warning that still lets the request through is not a control.
+
+The reader app points at `http://10.0.2.2:8000` by default (the emulator's alias
+for the host loopback) and the base URL is editable in Profile for readers who
+host their own instance.
 
 ## Licences
 

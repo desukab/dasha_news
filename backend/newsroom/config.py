@@ -19,6 +19,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 
+_SHIPPED_PLACEHOLDER = "change-me"
+
+
 class Settings(BaseSettings):
     """Strongly-typed view of the process environment."""
 
@@ -160,12 +163,28 @@ class Settings(BaseSettings):
             raise ValueError(f"ai_provider must be one of {sorted(allowed)}")
         return normalized
 
+    def admin_key_is_placeholder(self) -> bool:
+        """The admin key is the value shipped in the public source tree.
+
+        A placeholder here is not merely weak -- it is published. Anyone who
+        reads this repository knows it, so it cannot authenticate anything.
+        """
+        return self.admin_api_key.startswith(_SHIPPED_PLACEHOLDER)
+
+    def newsroom_secret_is_placeholder(self) -> bool:
+        """The HMAC secret is the value shipped in the public source tree.
+
+        Token signatures are only worth anything if the secret is private; with
+        the shipped value, a signed admin token is forgeable from the source.
+        """
+        return self.newsroom_secret.startswith(_SHIPPED_PLACEHOLDER)
+
     def warn_on_insecure_defaults(self) -> List[str]:
         """Problems that should be fixed in production but never block boot."""
         problems: List[str] = []
-        if self.newsroom_secret.startswith("change-me"):
+        if self.newsroom_secret_is_placeholder():
             problems.append("NEWSROOM_SECRET is still the shipped placeholder")
-        if self.admin_api_key.startswith("change-me"):
+        if self.admin_key_is_placeholder():
             problems.append("ADMIN_API_KEY is still the shipped placeholder")
         if self.database_kind.lower() == "sqlite":
             problems.append("SQLite is fine for single-node use; use PostgreSQL for HA")

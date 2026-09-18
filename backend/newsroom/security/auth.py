@@ -113,6 +113,22 @@ def require_admin(x_dasha_key: Optional[str] = Header(default=None, alias="X-Das
     every publishing action.
     """
     settings = get_settings()
+    # Fail closed. The shipped placeholders are published in the source tree,
+    # so while they are still in force the admin boundary does not exist at
+    # all: the key is guessable, and a signed token is forgeable with the known
+    # secret. A startup warning says the same thing, but a warning that still
+    # lets the request through is not a control. The newsroom keeps serving
+    # readers; only admin access is refused until the operator sets real ones.
+    if settings.admin_key_is_placeholder() or settings.newsroom_secret_is_placeholder():
+        logger.error(
+            "Refusing admin access: ADMIN_API_KEY and/or NEWSROOM_SECRET are still "
+            "the shipped placeholders. Set both before the newsroom can be "
+            "administered through this API."
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The newsroom is not configured for admin access.",
+        )
     candidate = x_dasha_key or ""
     if not candidate and authorization:
         scheme, _, token = authorization.partition(" ")

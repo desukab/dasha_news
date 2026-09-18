@@ -297,6 +297,54 @@ def test_admin_status_works_with_key(client):
     assert body["ai_provider"] == "heuristic"
 
 
+def test_admin_refuses_the_shipped_placeholder_key(client, monkeypatch):
+    # The shipped default is published in the source tree, so it is not a
+    # secret at all. Anyone who reads this repo must not become an admin by
+    # sending it back to us -- even when the operator left it in place.
+    from newsroom.config import Settings
+
+    shipped = Settings(admin_api_key="change-me-admin-key",
+                       newsroom_secret="test-secret-long-enough-for-hmac")
+    monkeypatch.setattr("newsroom.security.auth.get_settings", lambda: shipped)
+    monkeypatch.setattr("newsroom.config.get_settings", lambda: shipped)
+
+    response = client.get("/admin/status", headers={"X-Dasha-Key": "change-me-admin-key"})
+    assert response.status_code == 503
+    # And the refused request must not be a coin-flip with the wrong-key path:
+    # the operator has to change the config, not just retry.
+    assert response.json()["detail"] == "The newsroom is not configured for admin access."
+
+
+def test_admin_refuses_a_token_forged_with_the_shipped_secret(client, monkeypatch):
+    # The HMAC secret is what makes a signed token unforgeable. Left at the
+    # shipped value, an attacker who never touches the newsroom can mint a
+    # valid-looking admin token from the source alone.
+    from newsroom.config import Settings
+    from newsroom.security.auth import sign_token
+
+    shipped = Settings(admin_api_key="test-admin-key",
+                       newsroom_secret="change-me-to-a-long-random-string")
+    monkeypatch.setattr("newsroom.security.auth.get_settings", lambda: shipped)
+
+    forged = sign_token("admin")  # signed with the placeholder secret
+    response = client.get("/admin/status",
+                          headers={"X-Dasha-Key": "", "Authorization": f"Bearer {forged}"})
+    assert response.status_code == 503
+
+
+def test_admin_works_once_real_credentials_are_set(client, monkeypatch):
+    # The guard is about placeholders, not about the operator's choice of key:
+    # a real key over the same boundary still authenticates.
+    from newsroom.config import Settings
+
+    real = Settings(admin_api_key="a-real-operators-key",
+                    newsroom_secret="test-secret-long-enough-for-hmac")
+    monkeypatch.setattr("newsroom.security.auth.get_settings", lambda: real)
+
+    response = client.get("/admin/status", headers={"X-Dasha-Key": "a-real-operators-key"})
+    assert response.status_code == 200
+
+
 def test_admin_stories_list(session, client):
     _story(session, status="draft")
     response = client.get("/admin/stories")
