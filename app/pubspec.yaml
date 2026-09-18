@@ -1,0 +1,55 @@
+name: dasha_news
+description: A Telangana-first AI-native digital newspaper — Telugu, Tenglish and English.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management (BSD-3-Clause).
+  provider: ^6.1.2
+  # Networking (BSD-3-Clause).
+  http: ^1.2.2
+  # Local key-value persistence (BSD-3-Clause).
+  shared_preferences: ^2.3.2
+  # Image loading with caching and placeholders (MIT).
+  cached_network_image: ^3.4.1
+  # Opening the original source report in the browser (BSD-3-Clause).
+  url_launcher: ^6.3.1
+  # Date / number formatting (BSD-3-Clause).
+  intl: ^0.20.1
+  # Online / offline detection (BSD-3-Clause).
+  connectivity_plus: ^6.1.0
+  # Audio playback for the read-aloud edition (MIT).
+  just_audio: ^0.9.43
+  # App version reporting (BSD-3-Clause).
+  package_info_plus: ^8.1.1
+  # App filesystem locations (BSD-3-Clause).
+  path_provider: ^2.1.5
+  # System share sheet for story links (BSD-3-Clause).
+  share_plus: ^10.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  # Adaptive launcher icon generation (MIT).
+  flutter_launcher_icons: ^0.14.1
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/images/icon.png"
+  adaptive_icon_background: "#B3261E"
+  adaptive_icon_foreground: "assets/images/icon_foreground.png"
+  min_sdk_android: 21
