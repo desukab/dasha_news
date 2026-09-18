@@ -5,13 +5,14 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from newsroom.api import admin, public
+from newsroom.api import admin, editor, public
 from newsroom.config import get_settings, env_flag
 from newsroom.db.engine import dispose, init_db
 from newsroom.db.seed import seed_sources
@@ -27,6 +28,10 @@ def create_app(*, init_datastore: bool = True) -> FastAPI:
             seed_sources()
         except Exception as exc:  # noqa: BLE001 - seeding must not block boot
             logger.warning("source seeding failed: %s", exc)
+        try:
+            bootstrap_editor()
+        except Exception as exc:  # noqa: BLE001 - bootstrap must not block boot
+            logger.warning("editor bootstrap failed: %s", exc)
 
     for warning in settings.warn_on_insecure_defaults():
         logger.warning("CONFIGURATION: %s", warning)
@@ -48,7 +53,7 @@ def create_app(*, init_datastore: bool = True) -> FastAPI:
         allow_origins=settings.cors_origin_list,
         allow_credentials=False,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "X-Dasha-Key", "Authorization"],
+        allow_headers=["Content-Type", "X-Dasha-Key", "Authorization", "X-Dasha-Token"],
     )
 
     @app.middleware("http")
@@ -62,6 +67,7 @@ def create_app(*, init_datastore: bool = True) -> FastAPI:
 
     app.include_router(public.router)
     app.include_router(admin.router)
+    app.include_router(editor.router)
 
     _mount_media(app, settings.resolved_media_dir)
 
@@ -105,6 +111,50 @@ def create_app(*, init_datastore: bool = True) -> FastAPI:
         dispose()
 
     return app
+
+
+def bootstrap_editor() -> Optional[int]:
+    """Create the first administrator, only when the newsroom has no accounts.
+
+    Reads the credentials from the environment and never hard-codes anything;
+    without both values the newsroom simply starts with no editors and the
+    operator makes one out of band. Once one account exists this does nothing,
+    so it cannot be used to inject or reset an account later.
+    """
+    from sqlalchemy import select
+
+    from newsroom.db.engine import db_scope
+    from newsroom.db.models import Role, User
+    from newsroom.security.auth import hash_password
+
+    settings = get_settings()
+    email = settings.bootstrap_editor_email.strip().lower()
+    password = settings.bootstrap_editor_password
+    if not email or not password:
+        return None
+
+    with db_scope() as session:
+        if session.execute(select(User.id).limit(1)).first() is not None:
+            return None
+        if len(password) < 12:
+            logger.warning(
+                "BOOTSTRAP_EDITOR_PASSWORD is shorter than 12 characters; "
+                "no initial administrator was created")
+            return None
+        user = User(
+            email=email,
+            display_name=email.split("@")[0],
+            password_hash=hash_password(password),
+            role=Role.ADMIN.value,
+            is_active=True,
+        )
+        session.add(user)
+        session.flush()
+        logger.warning(
+            "BOOTSTRAP: created the initial administrator %s. Change its password "
+            "and unset the bootstrap variables; they are never read again.",
+            email)
+        return user.id
 
 
 def _mount_media(app: FastAPI, media_dir: Path) -> None:

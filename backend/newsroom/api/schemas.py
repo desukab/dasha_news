@@ -98,6 +98,11 @@ class StoryCard(BaseModel):
     state: Optional[str] = None
     is_breaking: bool
     is_developing: bool
+    # Who put this story here, and whether automation may touch its words. The
+    # editor app shows these differently; the reader app never sees them.
+    origin: str = "automated"
+    editor_locked: bool = False
+    needs_review: bool = False
     image_url: Optional[str] = None
     audio_url: Optional[str] = None
     has_audio: bool = False

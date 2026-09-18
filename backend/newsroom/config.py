@@ -46,6 +46,23 @@ class Settings(BaseSettings):
     fetch_timeout_seconds: int = 20
     fetch_max_retries: int = 2
     rate_limit_per_minute: int = 120
+    # How long an editor session token is worth. The editor app holds a token,
+    # not a password, and a stolen token should expire while the phone it was
+    # issued to is still in use.
+    session_token_ttl_hours: int = 720  # 30 days
+    # Password stretching iterations. PBKDF2-HMAC-SHA256 at 200k is roughly
+    # 100ms on this VM, which is a deliberate cost: the editor accounts are the
+    # high-value target, and the login rate limit means an honest user never
+    # notices it.
+    pbkdf2_iterations: int = 200_000
+
+    # ---- Editorial bootstrap ----------------------------------------------
+    # The first editor account is created from these *only* when the users
+    # table is empty, and never again after. Nothing is hard-coded: without
+    # both values the newsroom simply starts with no editors and the operator
+    # makes one out of band.
+    bootstrap_editor_email: str = ""
+    bootstrap_editor_password: str = ""
 
     # ---- Acquisition politeness -------------------------------------------
     # The newsroom is a guest on someone else's server. robots.txt is read and

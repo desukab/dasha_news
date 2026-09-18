@@ -535,6 +535,23 @@ def _write_story(session: Session, story: Story, source: Source,
     story.confidence = round(min(importance.score, evidence_score), 3)
 
     # --- editorial ----------------------------------------------------------
+    # A manual editorial decision outranks the machine. While a story is
+    # locked the pipeline still refreshes everything *behind* the prose -- the
+    # facts, the source links, the evidence score, the location -- because
+    # corroboration and conflict detection are what the editor is checking the
+    # story against. What it may not do is replace the words, and it may not
+    # change a status an editor set: an editor's "held" must not be turned into
+    # an "auto_published" by the next sweep.
+    if story.editor_locked:
+        record_update(session, story, StoryChange(
+            kind="note", headline=story.headline_te,
+            text_te="ఈ వార్త సంపాదకుల నియంత్రణలో ఉంది; వాస్తవాలు, మూలాలు నవీకరించబడ్డాయి.",
+            text_en="This story is under editorial control; its facts and sources "
+                    "were refreshed, its wording was not.",
+            article_id=None, applied_by="pipeline",
+            note=f"evidence {story.evidence_score:.2f}, {len(sources)} source(s)"))
+        return
+
     fact_views = [
         _FactView(fact, _article_for_fact(session, fact, articles), _source_for_fact(fact, sources, articles))
         for fact in facts

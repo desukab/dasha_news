@@ -9,6 +9,7 @@ generated prose as ground truth.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any, List, Optional
 
 from sqlalchemy import (
@@ -28,6 +29,31 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+class Role(Enum):
+    """Newsroom permissions, enforced server-side on every mutating endpoint.
+
+    ``USER`` is deliberately *not* "a reader" -- readers never authenticate.
+    It exists for an account that should be able to look at the newsroom
+    without being able to change anything in it, which is what a trial or an
+    observer needs.
+    """
+
+    USER = "user"
+    EDITOR = "editor"
+    ADMIN = "admin"
+
+    @classmethod
+    def allowed(cls) -> tuple[str, ...]:
+        return tuple(role.value for role in cls)
+
+
+class StoryOrigin(Enum):
+    """Who first put this story in the newsroom."""
+
+    AUTOMATED = "automated"   # the pipeline found and wrote it
+    MANUAL = "manual"         # an editor typed it
 
 
 class Base(DeclarativeBase):
@@ -162,7 +188,11 @@ class Story(Base):
     section: Mapped[str] = mapped_column(String(40), index=True)
     status: Mapped[str] = mapped_column(String(30), default="draft", index=True)
     # draft | held | auto_published | published | developing | breaking |
-    # corrected | killed
+    # corrected | killed | editor_review | approved | unpublished | archived
+    #
+    # The automated and the editorial lifecycles share this one column: an
+    # editor's decisions are states, not flags bolted on beside it, so a
+    # published story always means *published*, whoever moved it there.
 
     importance: Mapped[float] = mapped_column(Float, default=0.0)
     evidence_score: Mapped[float] = mapped_column(Float, default=0.0)
@@ -189,6 +219,27 @@ class Story(Base):
     published_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
+    # --- Editorial accountability ------------------------------------------
+    # Plain integer columns rather than foreign keys on purpose: an audit
+    # trail must survive the account it points at. If an editor leaves and
+    # their row is removed, their published stories still stand, and the
+    # signature still records who signed off. (The additive migration also
+    # cannot add a constrained column to an existing table, so this keeps a
+    # boot-time upgrade possible too.)
+    origin: Mapped[str] = mapped_column(String(20), default=StoryOrigin.AUTOMATED.value)
+    created_by_id: Mapped[Optional[int]] = mapped_column(Integer, index=True)
+    updated_by_id: Mapped[Optional[int]] = mapped_column(Integer, index=True)
+    published_by_id: Mapped[Optional[int]] = mapped_column(Integer, index=True)
+    # An editor's prose is never silently rewritten by the pipeline. See
+    # ``editor_locked`` in the orchestrator: while it is set, automation may
+    # still refresh the facts, the sources and the evidence behind a story,
+    # but it may not touch the words the editor wrote.
+    editor_locked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    @property
+    def is_manual(self) -> bool:
+        return self.origin == StoryOrigin.MANUAL.value
 
     facts: Mapped[List["Fact"]] = relationship(
         back_populates="story", cascade="all, delete-orphan"
@@ -229,6 +280,10 @@ class Story(Base):
             "state": self.state,
             "is_breaking": self.is_breaking,
             "is_developing": self.is_developing,
+            "origin": self.origin,
+            "editor_locked": self.editor_locked,
+            "created_by_id": self.created_by_id,
+            "published_by_id": self.published_by_id,
             "image_url": self.primary_image_url,
             "published_at": self.published_at.isoformat() if self.published_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
@@ -457,6 +512,74 @@ class AiCall(Base):
     success: Mapped[bool] = mapped_column(Boolean, default=True)
     error: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+
+class User(Base):
+    """A newsroom account: a reader is *not* a User.
+
+    Reader personalisation hangs off ``Device`` with no identity attached. A
+    User row exists only for someone who can change what the newsroom
+    publishes, so every User carries a role that the API checks server-side.
+
+    Passwords are never stored and never logged: only a PBKDF2 hash with a
+    per-row salt, and a verifier that runs in constant time.
+    """
+
+    __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("email", name="uq_users_email"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(200), index=True)
+    display_name: Mapped[str] = mapped_column(String(120), default="")
+    # "algorithm$iterations$salt$hash", so the scheme can be replaced later
+    # without a migration: a verifier that does not recognise the prefix
+    # simply rejects the login.
+    password_hash: Mapped[str] = mapped_column(String(400))
+    role: Mapped[str] = mapped_column(String(20), default=Role.USER.value, index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # A compromised or departed editor's tokens die immediately here, without
+    # waiting for them to expire on their own.
+    tokens_revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
+    @property
+    def is_editor(self) -> bool:
+        return self.role in (Role.EDITOR.value, Role.ADMIN.value)
+
+    @property
+    def is_admin(self) -> bool:
+        return self.role == Role.ADMIN.value
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "email": self.email,
+            "display_name": self.display_name or self.email.split("@")[0],
+            "role": self.role,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_login_at": self.last_login_at.isoformat() if self.last_login_at else None,
+        }
+
+
+class RevokedToken(Base):
+    """A session token the newsroom has killed before its own expiry.
+
+    Tokens are signed and stateless, which makes them cheap and makes logout
+    a lie unless the revocation is recorded somewhere durable -- so it is
+    recorded here. A signature is stored rather than the token itself, and
+    rows past their expiry are worthless and can be swept.
+    """
+
+    __tablename__ = "revoked_tokens"
+    __table_args__ = (UniqueConstraint("signature", name="uq_revoked_tokens_signature"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    signature: Mapped[str] = mapped_column(String(128), index=True)
+    user_id: Mapped[int] = mapped_column(Integer, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    revoked_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class AuditLog(Base):
