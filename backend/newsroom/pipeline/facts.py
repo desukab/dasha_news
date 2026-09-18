@@ -27,6 +27,7 @@ from newsroom.ai.provider import (
     with_fallback,
 )
 from newsroom.domain.evidence import EvidenceLevel
+from newsroom.nlp.language import Language, detect_language
 from newsroom.nlp.telugu import (
     content_tokens,
     split_sentences,
@@ -147,13 +148,34 @@ def heuristic_facts(text: str, language: str = "te") -> List[ExtractedFact]:
         attribution = _attribution(sentence, language)
         facts.append(ExtractedFact(
             text_te=sentence,
-            text_en=None,
+            text_en=_english_rendering(sentence, language),
             level=level,
             confidence=confidence,
             attributed_to=attribution,
         ))
     facts.sort(key=lambda f: (-EvidenceLevel(f.level).weight, -f.confidence))
     return facts[:14]
+
+
+def _english_rendering(sentence: str, language: str) -> Optional[str]:
+    """The Latin-script text of a sentence, when it is already Latin-script.
+
+    The heuristic path never translates: Telugu script stays Telugu and its
+    ``text_en`` stays empty rather than being faked. But an English or
+    Tenglish sentence is Latin script already, and storing it under
+    ``text_en`` is what lets the English writer render it. Without it, every
+    fact looked "untranslated" and the English edition of an English-language
+    story came out blank.
+
+    Tenglish (Telugu written in Latin script) is recorded here deliberately:
+    it is not an English translation, but it is the closest Latin-script
+    rendering the deterministic path can produce, and it is labelled as
+    Tenglish everywhere the reader sees it.
+    """
+    detected = detect_language(sentence)
+    if detected in (Language.ENGLISH, Language.TENGLISH):
+        return sentence
+    return None
 
 
 def classify_sentence(sentence: str) -> str:

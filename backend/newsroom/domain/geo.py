@@ -232,6 +232,14 @@ ALIASES: Dict[str, str] = {
 for _seat, _district in CONSTITUENCIES.items():
     ALIASES.setdefault(_seat, _district)
 
+# The plain English district names. These were missing from the hand-written
+# alias table, which meant English copy naming a district directly ("...in
+# Hyderabad") resolved to state-level news while the Telugu and abbreviated
+# spellings worked. Derived from DISTRICTS so the canonical name can never
+# drift from the district list.
+for _district in ALL_DISTRICTS:
+    ALIASES.setdefault(_district, _district)
+
 HYDERABAD_LOCALITIES: List[str] = MANDALS["Hyderabad"]
 
 

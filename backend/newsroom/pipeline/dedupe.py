@@ -15,9 +15,11 @@ without any network or model.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Iterable, List, Optional, Sequence
+from functools import lru_cache
+from typing import Iterable, List, Optional, Sequence, Set
 
 from newsroom.nlp.similarity import (
     NEAR_DUPLICATE_DISTANCE,
@@ -28,6 +30,11 @@ from newsroom.nlp.similarity import (
     token_overlap_score,
 )
 from newsroom.nlp.telugu import content_tokens
+
+# Counts, casualty figures, amounts and other measures. Clustered only when the
+# same distinctive figure turns up in two outlets' headlines.
+_NUMBERS = re.compile(r"\d{1,6}")
+_YEAR = re.compile(r"(?:19|20)\d{2}")
 
 # Articles older than this are not compared, because the same headline shape
 # recurs for recurring events (a holiday, a fixture, an anniversary).
@@ -83,7 +90,6 @@ def _same_article_url(article, candidate) -> bool:
     if not left or not right:
         return False
     return urls_equivalent(left, right, base=getattr(article, "url", "") or "")
-    return DedupeResult(is_duplicate=False)
 
 
 @dataclass
@@ -103,6 +109,7 @@ class ClusterCandidate:
     published_at: Optional[datetime]
     district: Optional[str] = None
     section: Optional[str] = None
+    excerpt: Optional[str] = None
 
 
 def cluster_article(article, stories: Sequence[ClusterCandidate], *,
@@ -122,6 +129,12 @@ def cluster_article(article, stories: Sequence[ClusterCandidate], *,
         title_score = max(
             token_overlap_score(article.title_raw, story.title),
             shape_similarity(article.title_raw, story.title),
+            # A Telugu report and an English report of the same event share no
+            # script at all: no tokens and almost no character n-grams. The
+            # cross-script scorer falls back to the things that *are* the same
+            # in either alphabet -- the place, and the numbers involved.
+            _cross_script_score(article.title_raw, story.title),
+            _cross_script_score(_article_text(article), story.excerpt or story.title),
         )
         hash_score = _hash_similarity(article.digest, story.digest)
         score = max(title_score, hash_score * 0.9)
@@ -145,6 +158,96 @@ def _hash_similarity(a: Optional[str], b: Optional[str]) -> float:
     if distance == 0:
         return 1.0
     return max(0.0, 1.0 - distance / 24.0)
+
+
+def _cross_script_score(left: Optional[str], right: Optional[str]) -> float:
+    """Same-event evidence that survives a change of script.
+
+    A Telugu headline and an English headline of one event share no tokens and
+    almost no character n-grams, so the ordinary title scorers score them zero.
+    Transliterating one side does not help either: "హైదరాబాద్" transliterates to
+    "haidrabad", which is no closer to "Hyderabad" than the Telugu was.
+
+    Two things *are* script-independent, and this function scores only them:
+
+    * **Places.** The geo alias table already maps both scripts to one canonical
+      district, so "హైదరాబాద్" and "Hyderabad" both resolve to Hyderabad.
+    * **Numbers.** "12 గ్రామాలు" and "12 villages" share the digit run "12".
+
+    Agreement on one signal alone is far too weak -- many unrelated stories
+    share a district, and small counts recur -- so it scores below the cluster
+    threshold. Both signals agreeing is what merges a cross-script pair.
+    """
+    if not left or not right:
+        return 0.0
+    if not _different_script(left, right):
+        return 0.0
+
+    place_agrees = _titles_share_place(left, right)
+    number_agrees = bool(_shared_numbers(left, right))
+    if place_agrees and number_agrees:
+        return 0.55
+    return 0.30 if place_agrees else 0.0
+
+
+def _different_script(left: str, right: str) -> bool:
+    """One side is Telugu script and the other is predominantly Latin.
+
+    Same-script pairs keep using the token and shape scorers, which are sharper
+    for them; this bridge is only for the pairs those scorers cannot see.
+    """
+    from newsroom.nlp.telugu import telugu_ratio
+
+    return min(telugu_ratio(left), telugu_ratio(right)) < 0.2 < max(
+        telugu_ratio(left), telugu_ratio(right))
+
+
+@lru_cache(maxsize=4096)
+def _title_district(title: str) -> Optional[str]:
+    """The district a title names, cached: clustering compares many titles.
+
+    ``resolve_location`` is a pure function over a static alias table, so the
+    cache cannot go stale, and titles repeat heavily across a sweep.
+    """
+    from newsroom.domain.geo import resolve_location
+
+    try:
+        return resolve_location(title).district
+    except Exception:  # noqa: BLE001 - clustering must never fail on text shape
+        return None
+
+
+def _titles_share_place(left: str, right: str) -> bool:
+    district = _title_district(left)
+    return district is not None and district == _title_district(right)
+
+
+def _article_text(article) -> str:
+    """Title plus whatever body the pipeline has for the article so far.
+
+    Clustering runs before the full body fetch in the default sweep path, so
+    the feed summary is what is available; it is usually enough for the place
+    and number signals to land.
+    """
+    return " ".join(
+        part for part in (getattr(article, "title_raw", None),
+                          getattr(article, "body_text", None),
+                          getattr(article, "summary_text", None))
+        if part)
+
+
+def _shared_numbers(left: str, right: str) -> Set[str]:
+    """Distinctive counts and amounts present in both texts.
+
+    Single digits and four-digit years are excluded: the former repeat across
+    unrelated stories, the latter appears in almost every dateline, so neither
+    says anything about whether two reports describe the same event.
+    """
+    def _keep(value: str) -> bool:
+        return len(value) >= 2 and not _YEAR.fullmatch(value)
+
+    return {n for n in _NUMBERS.findall(left) if _keep(n)} & {
+        n for n in _NUMBERS.findall(right) if _keep(n)}
 
 
 def make_cluster_id(*parts: str) -> str:

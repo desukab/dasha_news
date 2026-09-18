@@ -225,6 +225,11 @@ def _extend_story(session: Session, story: Story, article: Article) -> Story:
             story_id=story.id, article_id=article.id, source_id=article.source_id,
             contribution=1.0, corroborates=True,
         ))
+        # The link must be flushed before anything queries StorySource directly.
+        # ``_story_articles`` joins through it, and without a flush the row is
+        # still pending in the identity map, so a freshly clustered story looked
+        # empty and was left as a draft with no facts and no headline.
+        session.flush()
     story.updated_at = datetime.utcnow()
     return story
 
@@ -282,6 +287,15 @@ def run_sweep(session: Session, *, fetch_bodies: bool = True,
 
 def _process_article(session: Session, article: Article, source: Source,
                      report: SweepReport, fetch_bodies: bool) -> None:
+    """Process one article inside a savepoint.
+
+    A failure must cost us that article only. Rolling back the whole
+    transaction instead would also discard every other article the scout just
+    ingested from this source, and would expire the ORM objects the sweep loop
+    is still holding -- which then raised ``ObjectDeletedError`` out of the
+    loop itself and lost the entire source.
+    """
+    nested = session.begin_nested()
     try:
         # 1. Deduplicate against this source's recent items.
         recent = session.execute(
@@ -294,6 +308,7 @@ def _process_article(session: Session, article: Article, source: Source,
             article.status = "rejected"
             article.rejection_reason = f"duplicate: {dedupe_result.reason}"
             report.articles_duplicates += 1
+            nested.commit()
             return
 
         # 2. Extract the readable body.
@@ -308,14 +323,32 @@ def _process_article(session: Session, article: Article, source: Source,
         story = build_or_update_story(session, article, article.cluster_id)
         _write_story(session, story, source, report)
         report.stories_updated += 1
+        nested.commit()
     except Exception as exc:  # noqa: BLE001
-        session.rollback()
-        report.errors.append(f"article {article.id}: {type(exc).__name__}: {exc}")
+        nested.rollback()
+        # The savepoint kept the scout's inserts intact, so the article row is
+        # still live; only this article's own processing is abandoned.
+        _mark_article_failed(session, article, exc)
+        report.errors.append(f"article {article.url}: {type(exc).__name__}: {exc}")
         logger.exception("article processing failed for %s", article.url)
+
+
+def _mark_article_failed(session: Session, article: Article, exc: BaseException) -> None:
+    """Record why an article was skipped, without invalidating the sweep."""
+    try:
+        article.status = "failed"
+        article.rejection_reason = f"{type(exc).__name__}: {str(exc)[:200]}"
+        session.flush()
+    except Exception:  # noqa: BLE001 - observability must not restart the failure
+        pass
 
 
 def _assign_cluster(session: Session, article: Article, source: Source) -> str:
     """Find or create the cluster key for this article."""
+    recent = session.execute(
+        select(Story).order_by(Story.updated_at.desc()).limit(120)
+    ).scalars().all()
+    excerpts = _story_excerpts(session, [story.id for story in recent])
     candidates = [
         ClusterCandidate(
             id=story.id,
@@ -325,10 +358,9 @@ def _assign_cluster(session: Session, article: Article, source: Source) -> str:
             published_at=story.published_at or story.first_seen_at,
             district=story.district,
             section=story.section,
+            excerpt=excerpts.get(story.id),
         )
-        for story in session.execute(
-            select(Story).order_by(Story.updated_at.desc()).limit(120)
-        ).scalars().all()
+        for story in recent
     ]
     match = cluster_article(article, candidates)
     if match is not None:
@@ -352,6 +384,34 @@ def _story_digest(session: Session, story: Story) -> Optional[str]:
     return row[0] if row else None
 
 
+def _story_excerpts(session: Session, story_ids: Sequence[int]) -> Dict[int, str]:
+    """The source copy behind each Story, one excerpt per story.
+
+    A Story's headline is generated copy, but clustering needs the *reported*
+    text: the cross-script bridge scores places and figures, and those live in
+    what the outlets actually wrote, not in the summary the pipeline produced
+    from it. Built in one query so a 120-story candidate list costs one round
+    trip rather than 120.
+    """
+    if not story_ids:
+        return {}
+    rows = session.execute(
+        select(StorySource.story_id, Article.title_raw, Article.summary_text)
+        .join(Article, Article.id == StorySource.article_id)
+        .where(StorySource.story_id.in_(story_ids))
+        .order_by(StorySource.story_id, Article.ingested_at.desc())
+    ).all()
+    per_story: Dict[int, List[str]] = {}
+    for story_id, title, summary in rows:
+        parts = [part for part in (title, summary) if part]
+        if not parts:
+            continue
+        per_story.setdefault(story_id, [])
+        if len(per_story[story_id]) < 2:
+            per_story[story_id].append(" ".join(parts)[:400])
+    return {story_id: " ".join(parts) for story_id, parts in per_story.items()}
+
+
 # ---------------------------------------------------------------------------
 # Story writing
 # ---------------------------------------------------------------------------
@@ -371,19 +431,45 @@ def _story_sources(session: Session, story: Story) -> List[Source]:
     ).scalars().all())
 
 
+def _article_for_fact(session: Session, fact: Fact,
+                      articles: List[Article]) -> Article:
+    """The article a fact was extracted from.
+
+    Facts point at their source article directly; the fallback (the cluster's
+    first article) keeps a fact view renderable when the row predates the
+    ``source_article_id`` column.
+    """
+    if fact.source_article_id is not None:
+        for article in articles:
+            if article.id == fact.source_article_id:
+                return article
+    return articles[0]
+
+
+def _source_for_fact(fact: Fact, sources: List[Source],
+                     articles: List[Article]) -> Source:
+    """The outlet behind a fact, again with a safe fallback."""
+    if fact.source_article_id is not None:
+        for article in articles:
+            if article.id == fact.source_article_id and article.source is not None:
+                return article.source
+    return sources[0] if sources else None
+
+
 class _FactView:
     """Adapter so the writers see a uniform fact interface."""
 
-    def __init__(self, fact: Fact, article: Article, source: Source):
+    def __init__(self, fact: Fact, article: Optional[Article],
+                 source: Optional[Source]):
         self.text_te = fact.text_te
         self.text_en = fact.text_en
         self.evidence_level = fact.evidence_level
         self.confidence = fact.confidence
         self.attributed_to = fact.attributed_to
-        self.source_name = source.name
-        self.source_title = article.title_raw
-        self.published_at = article.published_at
-        self.source_article_id = article.id
+        self.source_name = source.name if source is not None else "unknown"
+        self.source_title = article.title_raw if article is not None else None
+        self.published_at = article.published_at if article is not None else None
+        self.source_article_id = article.id if article is not None else None
 
 
 def _write_story(session: Session, story: Story, source: Source,
