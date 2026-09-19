@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../core/app_strings.dart';
@@ -50,6 +51,9 @@ class _MainShellState extends State<MainShell> {
       _tabKeys[index].currentState?.jumpToTop();
       return;
     }
+    // A selection, not a command: the softest of the three impact levels, so
+    // the tab change is felt in the thumb that made it rather than heard.
+    HapticFeedback.selectionClick();
     setState(() => _index = index);
   }
 

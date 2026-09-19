@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../core/app_strings.dart';
@@ -24,6 +25,7 @@ class StoryCard extends StatelessWidget {
     this.compact = false,
     this.variant,
     this.trailing,
+    this.heroTag,
   });
 
   final Story story;
@@ -40,6 +42,10 @@ class StoryCard extends StatelessWidget {
   final StoryVariant? variant;
 
   final Widget? trailing;
+
+  /// The hero tag for the photograph, so it flies into the story page. Pass it
+  /// only from a list where this story appears exactly once.
+  final String? heroTag;
 
   StoryVariant get _variant => variant ?? (compact ? StoryVariant.brief : StoryVariant.standard);
 
@@ -59,6 +65,7 @@ class StoryCard extends StatelessWidget {
           language: language,
           strings: strings,
           onTap: onTap,
+          heroTag: heroTag,
         );
       case StoryVariant.secondary:
         return _SecondaryCard(
@@ -67,6 +74,7 @@ class StoryCard extends StatelessWidget {
           language: language,
           strings: strings,
           onTap: onTap,
+          heroTag: heroTag,
         );
       case StoryVariant.brief:
         return _BriefCard(
@@ -118,12 +126,22 @@ class _CardShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: InkWell(
-        onTap: onTap,
+        onTap: _tap(onTap),
         customBorder: Theme.of(context).cardTheme.shape,
         child: child,
       ),
     );
   }
+}
+
+/// A tap on a story is the app's most-used gesture, so it gets a physical
+/// one: the reader feels the story land before the page starts to move.
+VoidCallback? _tap(VoidCallback? onTap) {
+  if (onTap == null) return null;
+  return () {
+    HapticFeedback.lightImpact();
+    onTap();
+  };
 }
 
 /// The breaking/developing badge, drawn small and flat so it does not
@@ -279,6 +297,7 @@ class _Photo extends StatelessWidget {
     required this.width,
     required this.height,
     this.radius = 4,
+    this.heroTag,
   });
 
   final String url;
@@ -286,9 +305,14 @@ class _Photo extends StatelessWidget {
   final double height;
   final double radius;
 
+  /// When set, the photograph carries a hero tag so it flies into the story
+  /// page. Only one card per screen may carry a given tag, so callers pass it
+  /// only where a story appears once.
+  final String? heroTag;
+
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
+    final image = ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: CachedNetworkImage(
         imageUrl: url,
@@ -303,6 +327,8 @@ class _Photo extends StatelessWidget {
         errorWidget: (context, url, error) => const SizedBox.shrink(),
       ),
     );
+    if (heroTag == null) return image;
+    return Hero(tag: heroTag!, child: image);
   }
 }
 
@@ -317,6 +343,7 @@ class _LeadCard extends StatelessWidget {
     required this.language,
     required this.strings,
     this.onTap,
+    this.heroTag,
   });
 
   final Story story;
@@ -324,6 +351,7 @@ class _LeadCard extends StatelessWidget {
   final String language;
   final AppStrings strings;
   final VoidCallback? onTap;
+  final String? heroTag;
 
   @override
   Widget build(BuildContext context) {
@@ -342,6 +370,7 @@ class _LeadCard extends StatelessWidget {
                   url: story.imageUrl!,
                   width: double.infinity,
                   height: 200,
+                  heroTag: heroTag,
                 ),
               ),
             ],
@@ -429,6 +458,7 @@ class _SecondaryCard extends StatelessWidget {
     required this.language,
     required this.strings,
     this.onTap,
+    this.heroTag,
   });
 
   final Story story;
@@ -436,6 +466,7 @@ class _SecondaryCard extends StatelessWidget {
   final String language;
   final AppStrings strings;
   final VoidCallback? onTap;
+  final String? heroTag;
 
   @override
   Widget build(BuildContext context) {
@@ -448,7 +479,12 @@ class _SecondaryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (hasPhoto)
-              _Photo(url: story.imageUrl!, width: double.infinity, height: 104)
+              _Photo(
+                url: story.imageUrl!,
+                width: double.infinity,
+                height: 104,
+                heroTag: heroTag,
+              )
             else
               Container(
                 height: 104,
@@ -514,7 +550,7 @@ class _BriefCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return InkWell(
-      onTap: onTap,
+      onTap: _tap(onTap),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

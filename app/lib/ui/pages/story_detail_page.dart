@@ -269,18 +269,21 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: CachedNetworkImage(
-              imageUrl: _story.imageUrl!,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Container(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: Hero(
+          tag: 'story-photo-${_story.id}',
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: CachedNetworkImage(
+                imageUrl: _story.imageUrl!,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                ),
+                errorWidget: (context, url, error) =>
+                    const SizedBox.shrink(),
               ),
-              errorWidget: (context, url, error) =>
-                  const SizedBox.shrink(),
             ),
           ),
         ),

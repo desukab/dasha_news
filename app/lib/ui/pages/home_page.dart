@@ -221,6 +221,7 @@ class _HomePageState extends TabPageState<HomePage> {
         StoryCard(
           story: items.first,
           variant: StoryVariant.lead,
+          heroTag: _photoHeroTag(items.first),
           onTap: () => _openStory(items.first),
         ),
         vertical: 14,
@@ -237,6 +238,7 @@ class _HomePageState extends TabPageState<HomePage> {
                 child: StoryCard(
                   story: items[1],
                   variant: StoryVariant.secondary,
+                  heroTag: _photoHeroTag(items[1]),
                   onTap: () => _openStory(items[1]),
                 ),
               ),
@@ -246,6 +248,7 @@ class _HomePageState extends TabPageState<HomePage> {
                     ? StoryCard(
                         story: items[2],
                         variant: StoryVariant.secondary,
+                        heroTag: _photoHeroTag(items[2]),
                         onTap: () => _openStory(items[2]),
                       )
                     : const SizedBox.shrink(),
@@ -283,6 +286,12 @@ class _HomePageState extends TabPageState<HomePage> {
       child: child,
     );
   }
+
+  /// The hero tag a card's photograph and the story page's photograph share.
+  /// Only the lead and the secondary pair carry one: the briefs have no
+  /// photograph, and the developing rail draws the same stories the feed does,
+  /// so tagging its thumbnails would put two heroes on one screen.
+  String _photoHeroTag(Story story) => 'story-photo-${story.id}';
 
   /// The nameplate band: the paper's name, the edition date, and the district
   /// the reader has chosen, which is one tap away rather than a pill bar of
