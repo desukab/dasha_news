@@ -70,18 +70,22 @@ class _ShortCard extends StatelessWidget {
             )
           else
             Container(color: theme.colorScheme.surfaceContainerHigh),
-          // A gradient keeps white text legible over any image.
+          // A gradient carries the photograph, but a gradient cannot be
+          // trusted with type: white text over an arbitrary photograph needs
+          // a ground at or below 0.18 relative luminance, which no partial
+          // scrim reaches. The type sits on a near-opaque panel instead, so
+          // the ratio holds whatever the newsroom's picture is.
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                stops: [0.0, 0.45, 0.75, 1.0],
+                stops: [0.0, 0.4, 0.75, 1.0],
                 colors: [
-                  Color(0x66000000),
+                  Color(0x8C000000),
                   Color(0x00000000),
-                  Color(0x88000000),
-                  Color(0xCC000000),
+                  Color(0x99000000),
+                  Color(0xE6000000),
                 ],
               ),
             ),
@@ -105,7 +109,7 @@ class _ShortCard extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(7),
                           decoration: const BoxDecoration(
-                            color: Colors.white24,
+                            color: Color(0xCC000000),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(Icons.headphones_rounded,
@@ -114,54 +118,68 @@ class _ShortCard extends StatelessWidget {
                     ],
                   ),
                   const Spacer(),
-                  if (story.place != null) ...[
-                    Row(
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xE6000000),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.place_rounded,
-                            color: Colors.white70, size: 14),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            story.place!,
-                            style: theme.textTheme.labelLarge?.copyWith(
-                                  color: Colors.white70,
-                                  fontWeight: FontWeight.w600,
+                        if (story.place != null) ...[
+                          Row(
+                            children: [
+                              const Icon(Icons.place_rounded,
+                                  color: Colors.white, size: 14),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  story.place!,
+                                  style: theme.textTheme.labelLarge?.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ),
+                          const SizedBox(height: 8),
+                        ],
+                        Text(
+                          headline,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                height: hasTeluguScript(headline) ? 1.38 : 1.26,
+                              ),
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            _chip(strings.sources,
+                                story.numSources.toString()),
+                            const SizedBox(width: 8),
+                            _chip(
+                                strings.reading,
+                                '${readingTime(story.body(app.locale))} '
+                                    '${strings.minRead}'),
+                            const Spacer(),
+                            Text(
+                              relativeTime(story.publishedAt,
+                                  strings: strings),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                    color: Colors.white,
+                                  ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                  ],
-                  Text(
-                    headline,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          height: hasTeluguScript(headline) ? 1.38 : 1.26,
-                        ),
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      _chip(strings.sources, story.numSources.toString()),
-                      const SizedBox(width: 8),
-                      _chip(
-                          strings.reading,
-                          '${readingTime(story.body(app.locale))} '
-                              '${strings.minRead}'),
-                      const Spacer(),
-                      Text(
-                        relativeTime(story.publishedAt, strings: strings),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                              color: Colors.white60,
-                            ),
-                      ),
-                    ],
                   ),
                 ],
               ),
@@ -195,7 +213,7 @@ class _ShortCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.black38,
+        color: const Color(0x38FFFFFF),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
@@ -213,7 +231,7 @@ class _ShortCard extends StatelessWidget {
           Text(
             label,
             style: const TextStyle(
-              color: Colors.white70,
+              color: Colors.white,
               fontSize: 11,
               fontWeight: FontWeight.w600,
             ),

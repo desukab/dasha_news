@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_strings.dart';
+import '../../core/theme.dart';
 import '../../state/app_state.dart';
 import '../router.dart';
 import '../widgets/masthead.dart';
@@ -15,11 +16,40 @@ class SplashPage extends StatefulWidget {
   State<SplashPage> createState() => _SplashPageState();
 }
 
-class _SplashPageState extends State<SplashPage> {
+class _SplashPageState extends State<SplashPage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+  late final Animation<Offset> _rise;
+
   @override
   void initState() {
     super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    // The nameplate arrives already lit and settles where it sits: a fade with
+    // a small rise, not a bounce, because a paper's masthead is a fixed thing.
+    _opacity = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
+    );
+    _rise = Tween<Offset>(
+      begin: const Offset(0, 0.05),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.0, 0.75, curve: Curves.easeOutCubic),
+    ));
+    _controller.forward();
     WidgetsBinding.instance.addPostFrameCallback((_) => _route());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   Future<void> _route() async {
@@ -51,7 +81,13 @@ class _SplashPageState extends State<SplashPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const DashaMasthead(size: MastheadSize.splash),
+                FadeTransition(
+                  opacity: _opacity,
+                  child: SlideTransition(
+                    position: _rise,
+                    child: const DashaMasthead(size: MastheadSize.splash),
+                  ),
+                ),
                 const SizedBox(height: 26),
                 const SizedBox(
                   width: 26,
@@ -66,7 +102,7 @@ class _SplashPageState extends State<SplashPage> {
                 Text(
                   AppStrings.of(context, 'te').tagline,
                   style: const TextStyle(
-                    color: Colors.white70,
+                    color: mastheadPaper,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.5,

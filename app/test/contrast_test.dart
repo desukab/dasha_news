@@ -110,4 +110,24 @@ void main() {
       expect(AppTheme.light().cardColor, const Color(0xFFFFFFFF));
     });
   });
+
+  group('type over a photograph', () {
+    // White type over an arbitrary newsroom picture is the one place a partial
+    // scrim cannot be trusted: the ground must be at or below 0.18 luminance
+    // for the body-text bar, which needs roughly 82% black even over a white
+    // photograph. The shorts panel is that ground; the chip tint is not, which
+    // is why the chip only ever sits on the panel.
+    test('the shorts panel is a ground for white type over a white photo', () {
+      const panel = Color(0xE6000000);
+      expect(panel.contrastOn(Colors.white), greaterThanOrEqualTo(contrastAa));
+    });
+
+    test('the masthead chip tint still takes white type on the masthead red',
+        () {
+      expect(
+        Colors.white.contrastOn(Color.alphaBlend(mastheadChip, mastheadRed)),
+        greaterThanOrEqualTo(contrastAa),
+      );
+    });
+  });
 }

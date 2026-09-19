@@ -279,6 +279,13 @@ enum SemanticColour {
 const Color mastheadPaper = Color(0xFFFFF7F2);
 const Color mastheadRule = Color(0xFFFFF7F2);
 
+/// A white tint translucent enough to still be a ground for white type on the
+/// masthead red. This is the one place alpha is allowed on the band, and only
+/// at this strength: `0x3DFFFFFF` — the obvious `white24` — fades to 4.23:1,
+/// under the body-text bar, because fading white toward the red it sits on
+/// fades it toward the colour it must contrast with.
+const Color mastheadChip = Color(0x24FFFFFF);
+
 /// The hue a claim's evidence level is painted in, mirrored from the
 /// newsroom's own `EvidenceLevel` taxonomy so the app and the backend never
 /// disagree.

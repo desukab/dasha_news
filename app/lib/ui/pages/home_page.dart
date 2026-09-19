@@ -349,7 +349,7 @@ class _HomePageState extends TabPageState<HomePage> {
       BuildContext context, AppState app, AppStrings strings) {
     final label = _district ?? strings.stateEdition;
     return Material(
-      color: Colors.white.withValues(alpha: 0.14),
+      color: mastheadChip,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: Colors.white.withValues(alpha: 0.38)),

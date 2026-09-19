@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_strings.dart';
 import '../../core/config.dart';
+import '../../core/theme.dart';
 import '../../state/app_state.dart';
 import '../main_shell.dart';
 import '../router.dart';
@@ -288,7 +289,7 @@ class _ProfilePageState extends TabPageState<ProfilePage> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white24,
+                  color: mastheadChip,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -305,7 +306,7 @@ class _ProfilePageState extends TabPageState<ProfilePage> {
           Text(
             app.storage.deviceId,
             style: theme.textTheme.bodySmall?.copyWith(
-                  color: Colors.white70,
+                  color: mastheadPaper,
                   fontFamily: 'monospace',
                 ),
           ),
