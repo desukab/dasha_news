@@ -37,7 +37,7 @@ class _AudioPageState extends TabPageState<AudioPage> {
     super.initState();
     final app = context.read<AppState>();
     _lastLocale = app.locale;
-    final repository = FeedRepository(app, CacheNames.feed);
+    final repository = FeedRepository(app, CacheNames.audio);
     _list = PagedList((page) => repository.fetch(
           load: () => app.api.feed(language: app.locale, page: page),
         ));

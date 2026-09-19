@@ -32,6 +32,7 @@ class _ExplorePageState extends TabPageState<ExplorePage> {
   late final PagedList _developing;
   String? _section;
   late final PagedList _sectionList;
+  FeedRepository? _sectionRepository;
   String? _lastLocale;
 
   static const List<NewsSection> _fallbackSections = [
@@ -58,8 +59,10 @@ class _ExplorePageState extends TabPageState<ExplorePage> {
     _developing = PagedList((page) => repository.fetch(
           load: () => app.api.developing(page: page),
         ));
-    final sectionRepository = FeedRepository(app, CacheNames.feed);
-    _sectionList = PagedList((page) => sectionRepository.fetch(
+    // Fetched through a holder rather than a final local, because the cache
+    // is keyed by section: a new section gets a new repository, and this list
+    // picks it up on the next fetch.
+    _sectionList = PagedList((page) => _sectionRepository!.fetch(
           load: () => app.api.feed(
             language: app.locale,
             section: _section,
@@ -97,7 +100,9 @@ class _ExplorePageState extends TabPageState<ExplorePage> {
     if (_lastLocale != app.locale) {
       _lastLocale = app.locale;
       _developing.refresh();
-      _sectionList.refresh();
+      // A section's results are re-fetched only while a section is open; the
+      // grid of sections itself comes from the catalogue, not this list.
+      if (_section != null) _sectionList.refresh();
     }
   }
 
@@ -111,12 +116,23 @@ class _ExplorePageState extends TabPageState<ExplorePage> {
   }
 
   void _openSection(String slug) {
+    final app = context.read<AppState>();
     setState(() => _section = slug);
+    // The cache answers the section that wrote it, so the repository is
+    // rebuilt per section rather than shared: one stale page under every
+    // header would be a lie, not a convenience.
+    _sectionRepository = FeedRepository(app, CacheNames.section(slug));
+    // The previous section's stories must not sit under this header while
+    // their replacements load.
+    _sectionList.reset();
     _sectionList.refresh();
   }
 
   void _closeSection() {
-    setState(() => _section = null);
+    setState(() {
+      _section = null;
+      _sectionRepository = null;
+    });
   }
 
   void _openStory(Story story) {

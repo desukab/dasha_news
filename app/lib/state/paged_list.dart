@@ -41,6 +41,20 @@ class PagedList extends ChangeNotifier {
 
   int get total => _total;
 
+  /// Drops everything loaded so far, without fetching.
+  ///
+  /// This is what a screen calls when the *question* changed — a new search
+  /// query, a different section — so the old answers are not left on screen
+  /// beneath the new header while the replacement loads.
+  void reset() {
+    _items.clear();
+    _error = null;
+    _hasMore = true;
+    _page = 0;
+    _total = 0;
+    notifyListeners();
+  }
+
   /// Loads page 1, replacing everything.
   ///
   /// A failed refresh keeps the old items unless the failure is a hard error

@@ -100,15 +100,25 @@ class Storage {
   }
 
   Future<void> clearCache() async {
-    for (final name in const ['feed', 'breaking', 'developing', 'search']) {
-      try {
-        final file = _cacheFile(name);
-        if (file.existsSync()) {
-          await file.delete();
+    // Cache names are per section and per query now, so the set is swept
+    // rather than enumerated: everything filed under this directory is
+    // disposable, and a name added later must not outlive the reader's
+    // request to forget it all.
+    try {
+      await for (final entity in _cacheDir.list(followLinks: false)) {
+        if (entity is! File) continue;
+        final name = entity.uri.pathSegments.last;
+        if (!name.startsWith('dasha_cache_') || !name.endsWith('.json')) {
+          continue;
         }
-      } on Exception {
-        // Cache cleanup must never block the reader.
+        try {
+          await entity.delete();
+        } on Exception {
+          // One stuck file must not save the rest.
+        }
       }
+    } on Exception {
+      // Cache cleanup must never block the reader.
     }
   }
 }

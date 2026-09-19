@@ -69,6 +69,12 @@ class FeedRepository {
       if (raw == null || raw.isEmpty) return null;
       final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic>) return null;
+      // A cached page is only reusable in the language it was fetched in —
+      // the same story carries a different headline per language, and the
+      // cache key carries no locale. A stale-language page is a miss, not an
+      // answer in the wrong script.
+      final language = decoded['language'];
+      if (language is! String || language != appState.locale) return null;
       return StoryPage.fromJson(decoded).copyWith(fromCache: true);
     } on Exception {
       // A corrupt cache is discarded, not shown.
@@ -83,12 +89,27 @@ class FeedRepository {
 }
 
 /// Cache names, shared so a screen and its repository always agree.
+///
+/// A cache name is a promise about what is under the header it was fetched
+/// for, so two screens that answer different questions never share one. The
+/// per-query and per-section names are built rather than constant, because
+/// the question is the reader's to change.
 class CacheNames {
   const CacheNames._();
 
   static const String feed = 'feed';
   static const String breaking = 'breaking';
   static const String developing = 'developing';
-  static const String search = 'search';
   static const String sections = 'sections';
+
+  /// The audio edition: stories the newsroom narrated, which is not the same
+  /// set as the front page.
+  static const String audio = 'audio';
+
+  /// One cache per section: politics results must never surface under a
+  /// సినిమా header when the newsroom is unreachable.
+  static String section(String slug) => 'section:$slug';
+
+  /// One cache per query: another search is not this search's answer.
+  static String search(String query) => 'search:${query.trim()}';
 }

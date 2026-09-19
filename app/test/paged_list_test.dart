@@ -83,6 +83,22 @@ void main() {
     list.dispose();
   });
 
+  test('reset drops the answers to a question no longer being asked', () async {
+    final list = PagedList((page) async => _page([_story(1)], hasMore: true));
+    await list.refresh();
+    expect(list.items.map((s) => s.id), [1]);
+    expect(list.hasMore, isTrue);
+
+    list.reset();
+    expect(list.items, isEmpty);
+    expect(list.error, isNull);
+    expect(list.hasMore, isTrue);
+    // A subsequent refresh starts over, rather than appending to the old lot.
+    await list.refresh();
+    expect(list.items.map((s) => s.id), [1]);
+    list.dispose();
+  });
+
   test('a cached page renders before the network answers and survives its failure',
       () async {
     final list = PagedList((page) async => throw ApiException.offline());

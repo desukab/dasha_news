@@ -31,6 +31,7 @@ class _SearchPageState extends State<SearchPage> {
   final FocusNode _focus = FocusNode();
   final ScrollController _controller = ScrollController();
   late final PagedList _list;
+  FeedRepository? _repository;
   bool _hasSearched = false;
   String? _lastLocale;
 
@@ -39,8 +40,10 @@ class _SearchPageState extends State<SearchPage> {
     super.initState();
     final app = context.read<AppState>();
     _lastLocale = app.locale;
-    final repository = FeedRepository(app, CacheNames.search);
-    _list = PagedList((page) => repository.fetch(
+    // Fetched through a holder rather than a final local, because the cache
+    // is keyed by query: a new query gets a new repository, and this list
+    // picks it up on the next fetch.
+    _list = PagedList((page) => _repository!.fetch(
           load: () => app.api.search(
             query: _query.text.trim(),
             language: app.locale,
@@ -71,7 +74,14 @@ class _SearchPageState extends State<SearchPage> {
     final text = _query.text.trim();
     if (text.isEmpty) return;
     FocusScope.of(context).unfocus();
+    final app = context.read<AppState>();
     setState(() => _hasSearched = true);
+    // The cache answers the query that wrote it, so the repository is rebuilt
+    // per query: another search's results are not this search's answer.
+    _repository = FeedRepository(app, CacheNames.search(text));
+    // The previous query's results must not sit under the field while their
+    // replacements load.
+    _list.reset();
     _list.refresh();
   }
 
