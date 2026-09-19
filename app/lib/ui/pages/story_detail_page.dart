@@ -14,6 +14,7 @@ import '../../state/audio_controller.dart';
 import '../router.dart';
 import '../../widgets/states_view.dart';
 import '../main_shell.dart';
+import '../widgets/masthead.dart';
 
 /// The full story: headline, body, every fact with its evidence level, every
 /// source that reported it, and every correction since publication.
@@ -156,15 +157,14 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
 
   Widget _appBar(BuildContext context, AppState app, AudioController audio,
       AppStrings strings) {
-    return SliverAppBar(
+    // The paper's mark, not a translated word: the shell shows the same one
+    // above every tab, so a story page reads as the same publication.
+    return const SliverAppBar(
       floating: true,
       pinned: false,
       snap: true,
-      title: Text(
-        strings.appName,
-        style: const TextStyle(fontWeight: FontWeight.w800),
-      ),
-      actions: const [LanguageButton()],
+      title: DashaMonogram(extent: 30),
+      actions: [LanguageButton()],
     );
   }
 

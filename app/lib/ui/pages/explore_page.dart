@@ -129,16 +129,23 @@ class _ExplorePageState extends TabPageState<ExplorePage> {
     final app = context.watch<AppState>();
     return TabScaffold(
       title: app.strings.explore,
-      body: CustomScrollView(
-        controller: _controller,
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          if (_section != null) _sectionHeader(app),
-          if (_section == null) ...[
-            _developingSliver(app),
+      body: RefreshIndicator(
+        // The catalogue and the rail both come from the newsroom, so a pull
+        // reloads whichever one this screen is showing rather than leaving the
+        // reader to back out and return.
+        onRefresh: () =>
+            _section != null ? _sectionList.refresh() : _developing.refresh(),
+        child: CustomScrollView(
+          controller: _controller,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            if (_section != null) _sectionHeader(app),
+            if (_section == null) ...[
+              _developingSliver(app),
+            ],
+            _gridSliver(app),
           ],
-          _gridSliver(app),
-        ],
+        ),
       ),
     );
   }
