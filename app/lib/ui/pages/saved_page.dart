@@ -110,7 +110,10 @@ class _SavedPageState extends TabPageState<SavedPage> {
     if (_loading) {
       return const LoadingView();
     }
-    if (_error != null) {
+    // A failure replaces the screen only when there is nothing on it: a
+    // refresh that fails leaves the stories the reader already has up, and
+    // the pull-to-refresh itself says the attempt did not land.
+    if (_error != null && _items.isEmpty) {
       return ErrorState(
         message: _error!,
         onRetry: _load,
