@@ -114,10 +114,17 @@ jobs:
           fi
 
       - name: Build the release APK
-        run: flutter build apk --release
+        # A release points at the newsroom the build is for. The base URL is a
+        # repository *variable*, not a secret: a public endpoint is not secret,
+        # and an unset one leaves the flag empty and the build unchanged.
+        run: flutter build apk --release $DASHA_API_BASE_FLAG
+        env:
+          DASHA_API_BASE_FLAG: ${{ (vars.DASHA_API_BASE != '' && format('--dart-define=DASHA_API_BASE={0}', vars.DASHA_API_BASE)) || '' }}
 
       - name: Build the release AAB
-        run: flutter build appbundle --release
+        run: flutter build appbundle --release $DASHA_API_BASE_FLAG
+        env:
+          DASHA_API_BASE_FLAG: ${{ (vars.DASHA_API_BASE != '' && format('--dart-define=DASHA_API_BASE={0}', vars.DASHA_API_BASE)) || '' }}
 
       # Print exactly what was produced, with sizes, before it is uploaded, so
       # a failed or empty packaging step is visible in the log and not only in

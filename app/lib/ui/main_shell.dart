@@ -111,12 +111,18 @@ class TabScaffold extends StatelessWidget {
   const TabScaffold({
     super.key,
     required this.title,
+    this.titleWidget,
     this.actions,
     required this.body,
     this.bottom,
   });
 
   final String title;
+
+  /// Draws in place of the text title. Used by the front page, which carries
+  /// its own masthead band and so shows only the mark in the chrome.
+  final Widget? titleWidget;
+
   final List<Widget>? actions;
   final Widget body;
   final PreferredSizeWidget? bottom;
@@ -126,10 +132,11 @@ class TabScaffold extends StatelessWidget {
     final app = context.watch<AppState>();
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
+        title: titleWidget ??
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
         centerTitle: false,
         actions: actions ?? [const LanguageButton()],
         bottom: bottom,

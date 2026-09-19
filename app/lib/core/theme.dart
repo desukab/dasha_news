@@ -2,6 +2,56 @@ library;
 
 import 'package:flutter/material.dart';
 
+import 'format.dart';
+
+/// The masthead red and its dark shade, used for the front-page masthead band
+/// and the monogram. Kept here rather than in the generated assets so a widget
+/// can paint a matching ground without going to a bitmap.
+const Color mastheadRed = Color(0xFFB3261E);
+const Color mastheadRedDark = Color(0xFF7F1212);
+
+/// The Telugu nameplate, as one constant so no screen retypes it and no
+/// transcription drifts in.
+const String teluguNameplate = 'దశ న్యూస్';
+const String latinNameplate = 'DASHA NEWS';
+const String teluguMonogram = 'దశ';
+
+/// A headline style that picks its face from the script in front of it.
+///
+/// Telugu is set in Noto Sans Telugu; Latin and Tenglish in the serif the
+/// nameplate uses. Sniffing the *text* rather than the language setting is
+/// what makes a mixed Tenglish headline pick the right face, and what keeps
+/// a Telugu headline in its own face when the reader's language is English.
+TextStyle storyHeadline(
+  BuildContext context,
+  String text, {
+  double size = 20,
+  FontWeight weight = FontWeight.w800,
+  int maxLines = 3,
+}) {
+  final telugu = hasTeluguScript(text);
+  return Theme.of(context).textTheme.headlineSmall!.copyWith(
+        fontFamily: telugu ? 'NotoSansTelugu' : 'DashaSerif',
+        fontWeight: weight,
+        fontSize: size,
+        // Telugu matras need a taller line than Latin ascenders do.
+        height: telugu ? 1.34 : 1.22,
+        letterSpacing: telugu ? 0.0 : -0.2,
+      );
+}
+
+/// Body copy in Telugu gets the Telugu face for the same reason; Tenglish and
+/// English stay in the Material default, which is already a humanist sans.
+TextStyle teluguBody(BuildContext context, String text,
+    {double size = 14, FontWeight weight = FontWeight.w400}) {
+  return Theme.of(context).textTheme.bodyMedium!.copyWith(
+        fontFamily: hasTeluguScript(text) ? 'NotoSansTelugu' : null,
+        fontSize: size,
+        fontWeight: weight,
+        height: hasTeluguScript(text) ? 1.5 : 1.45,
+      );
+}
+
 /// The Dasha News visual language.
 ///
 /// Colour is the brand's only ornament: a newsprint red as the single accent,

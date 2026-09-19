@@ -19,8 +19,26 @@ import '../models/page.dart';
 /// List paging lives in [PagedList], one instance per screen.
 class AppState extends ChangeNotifier {
   AppState({required this.storage, ApiClient? api})
-      : _api = api ??
-            ApiClient(baseUrl: storage.getString(baseUrlKey, fallback: defaultBaseUrl));
+      : _api = api ?? ApiClient(baseUrl: _resolveBaseUrl(storage)) {
+    // Resolved here rather than only in [init] because `baseUrl` is read
+    // before init finishes — the splash routes on it. init() re-resolves it
+    // too; the two agree unless storage changed in between.
+    _baseUrl = _resolveBaseUrl(storage);
+  }
+
+  /// The newsroom origin this install actually talks to.
+  ///
+  /// A URL the reader set in Profile → Server always wins, because that is the
+  /// reader telling the app where their newsroom is. Otherwise the build's own
+  /// default is used — a `--dart-define` value in a release build, or the
+  /// emulator's host alias in a debug one. Nothing here is `10.0.2.2` unless
+  /// the build is a debug build with no define.
+  static String _resolveBaseUrl(Storage storage) {
+    final stored = storage.getString(baseUrlKey);
+    if (stored.isNotEmpty) return stored;
+    final built = defaultBaseUrl;
+    return built.isEmpty ? unresolvedBaseUrl : built;
+  }
 
   final Storage storage;
   final ApiClient _api;
@@ -81,7 +99,7 @@ class AppState extends ChangeNotifier {
   /// startup.
   Future<void> init() async {
     if (_initialised) return;
-    _baseUrl = storage.getString(baseUrlKey, fallback: defaultBaseUrl);
+    _baseUrl = _resolveBaseUrl(storage);
     _api.baseUrl = _baseUrl;
     _locale = storage.locale;
     _themeMode = storage.themeMode;

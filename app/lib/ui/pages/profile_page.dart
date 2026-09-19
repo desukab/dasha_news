@@ -4,10 +4,10 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_strings.dart';
 import '../../core/config.dart';
-import '../../core/theme.dart';
 import '../../state/app_state.dart';
 import '../main_shell.dart';
 import '../router.dart';
+import '../widgets/masthead.dart';
 
 /// Reader preferences and app information.
 ///
@@ -209,25 +209,7 @@ class _ProfilePageState extends TabPageState<ProfilePage> {
               children: [
                 Row(
                   children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: AppTheme.breaking,
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          'డ',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 19,
-                            height: 1.1,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
+                    const DashaMonogram(extent: 34),
                     const SizedBox(width: 10),
                     Text(strings.appName,
                         style: theme.textTheme.titleMedium),
@@ -333,11 +315,10 @@ class _ProfilePageState extends TabPageState<ProfilePage> {
   }
 
   Widget _languageTile(AppState app, ThemeData theme, AppStrings strings) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-      ),
+    return Material(
+      color: theme.colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
       child: ListTile(
         leading: const Icon(Icons.language_rounded),
         title: Text(strings.language),
@@ -407,17 +388,18 @@ class _ProfilePageState extends TabPageState<ProfilePage> {
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
         color: theme.colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(14),
-      ),
-      child: SwitchListTile(
-        secondary: Icon(icon),
-        title: Text(title),
-        value: value,
-        onChanged: onChanged,
+        clipBehavior: Clip.antiAlias,
+        child: SwitchListTile(
+          secondary: Icon(icon),
+          title: Text(title),
+          value: value,
+          onChanged: onChanged,
+        ),
       ),
     );
   }
@@ -429,14 +411,14 @@ class _ProfilePageState extends TabPageState<ProfilePage> {
     String? subtitle,
     required VoidCallback onTap,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
         color: theme.colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(14),
-      ),
-      child: ListTile(
-        leading: Icon(icon),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          leading: Icon(icon),
         title: Text(title),
         subtitle: subtitle != null && subtitle.isNotEmpty
             ? Text(subtitle,
@@ -444,8 +426,9 @@ class _ProfilePageState extends TabPageState<ProfilePage> {
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall)
             : null,
-        trailing: const Icon(Icons.chevron_right_rounded),
-        onTap: onTap,
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: onTap,
+        ),
       ),
     );
   }

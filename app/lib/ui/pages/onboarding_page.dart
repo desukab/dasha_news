@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,6 +8,7 @@ import '../../core/config.dart';
 import '../../core/theme.dart';
 import '../../state/app_state.dart';
 import '../router.dart';
+import '../widgets/masthead.dart';
 
 /// First-run orientation: language, then district, then in.
 ///
@@ -51,25 +54,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
       child: Row(
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppTheme.breaking,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Center(
-              child: Text(
-                'డ',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  height: 1.1,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
+          const DashaMonogram(extent: 38),
           const SizedBox(width: 12),
           Text(strings.appName,
               style: Theme.of(context)
@@ -174,9 +159,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
     if (_district != null && _district!.isNotEmpty) {
       await app.storage.setString(homeDistrictKey, _district!);
     }
+    // Onboarding is a local fact, not something the newsroom has to confirm:
+    // persist it and go. The device sync is best-effort and is never awaited
+    // here, so an offline first run does not hang on a 50-second timeout
+    // waiting for a POST that cannot succeed.
     await app.storage.completeOnboarding();
-    await app.syncDevice();
     if (!mounted) return;
+    unawaited(app.syncDevice());
     await Navigator.pushReplacementNamed(context, DashaRouter.home);
   }
 }

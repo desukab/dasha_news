@@ -45,6 +45,26 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/fonts/
+
+  fonts:
+    # Every Telugu string in the paper — the nameplate, headlines, body copy.
+    # Noto Sans Telugu is the only face that carries the script's matras
+    # correctly at small sizes; a generic sans drops them into the line above.
+    - family: NotoSansTelugu
+      fonts:
+        - asset: assets/fonts/NotoSansTelugu-Regular.ttf
+        - asset: assets/fonts/NotoSansTelugu-Bold.ttf
+          weight: 700
+    # Latin display type: the English nameplate, and Latin/Tenglish headlines.
+    # A serif on a news front reads as a newspaper; a rounded sans does not.
+    - family: DashaSerif
+      fonts:
+        - asset: assets/fonts/DashaSerif-Regular.ttf
+        - asset: assets/fonts/DashaSerif-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/DashaSerif-Bold.ttf
+          weight: 700
 
 flutter_launcher_icons:
   android: true

@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dasha_news/core/api_client.dart';
 import 'package:dasha_news/core/config.dart';
 import 'package:dasha_news/core/storage.dart';
@@ -104,6 +105,79 @@ void main() {
     await _pumpCard(tester, _story());
     expect(find.byIcon(Icons.image_outlined), findsNothing);
   });
+
+  // -- the front page variants ------------------------------------------------
+
+  testWidgets('a lead variant shows the lead paragraph and a full-width photo',
+      (tester) async {
+    await _pumpCard(
+      tester,
+      _story(
+        headlineTe: 'తెలంగాణ తాజా వార్త',
+        imageUrl: 'https://newsroom.test/photo.jpg',
+        bodyTe: 'ఇది మొదటి వాక్యం. రెండవ వాక్యం ఇది.',
+      ),
+      variant: StoryVariant.lead,
+    );
+
+    // The lead is the one variant that carries the photograph and the
+    // summary paragraph.
+    expect(find.byType(Card), findsOneWidget);
+    expect(find.byType(CachedNetworkImage), findsOneWidget);
+    expect(find.textContaining('మొదటి వాక్యం'), findsOneWidget);
+  });
+
+  testWidgets('a brief variant is type only — no card, no photo, no summary',
+      (tester) async {
+    await _pumpCard(
+      tester,
+      _story(
+        imageUrl: 'https://newsroom.test/photo.jpg',
+        bodyTe: 'ఇది మొదటి వాక్యం. రెండవ వాక్యం ఇది.',
+      ),
+      variant: StoryVariant.brief,
+    );
+
+    expect(find.byType(Card), findsNothing);
+    expect(find.byType(CachedNetworkImage), findsNothing);
+    // The brief keeps the headline and drops the summary; the count of
+    // sources moves to the story page.
+    expect(find.textContaining('మొదటి వాక్యం'), findsNothing);
+  });
+
+  testWidgets('a brief still shows the conflict the sources are in',
+      (tester) async {
+    await _pumpCard(
+      tester,
+      _story(
+        numSources: 2,
+        sources: const [
+          SourceLink(id: 1, corroborates: false, conflictsWith: 'the figure'),
+          SourceLink(id: 2, corroborates: true),
+        ],
+      ),
+      variant: StoryVariant.brief,
+    );
+
+    expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
+  });
+
+  testWidgets('compact: true is the brief variant', (tester) async {
+    await _pumpCard(tester, _story(), compact: true);
+    expect(find.byType(Card), findsNothing);
+  });
+
+  testWidgets('a secondary variant shows the photograph and a short headline',
+      (tester) async {
+    await _pumpCard(
+      tester,
+      _story(imageUrl: 'https://newsroom.test/photo.jpg'),
+      variant: StoryVariant.secondary,
+    );
+
+    expect(find.byType(Card), findsOneWidget);
+    expect(find.byType(CachedNetworkImage), findsOneWidget);
+  });
 }
 
 Future<void> _pumpCard(
@@ -112,6 +186,8 @@ Future<void> _pumpCard(
   VoidCallback? onTap,
   String locale = 'en',
   List<Fact> facts = const [],
+  StoryVariant? variant,
+  bool compact = false,
 }) async {
   final app = await _appState(tester, locale: locale);
   await tester.pumpWidget(
@@ -123,6 +199,8 @@ Future<void> _pumpCard(
           body: StoryCard(
             story: story.copyWithDetail(_withFacts(story, facts)),
             onTap: onTap,
+            variant: variant,
+            compact: compact,
           ),
         ),
       ),
@@ -148,6 +226,7 @@ Story _withFacts(Story story, List<Fact> facts) {
     correctionsCount: story.correctionsCount,
     sources: story.sources,
     headlineTe: story.headlineTe,
+    bodyTe: story.bodyTe,
     imageUrl: story.imageUrl,
     facts: facts,
   );
@@ -193,6 +272,8 @@ Story _story({
   bool isDeveloping = false,
   int correctionsCount = 0,
   String? headlineTe,
+  String? bodyTe,
+  String? imageUrl,
   List<SourceLink> sources = const [],
 }) {
   return Story(
@@ -207,9 +288,10 @@ Story _story({
     isBreaking: isBreaking,
     isDeveloping: isDeveloping,
     headlineTe: headlineTe ?? 'Telangana news',
+    bodyTe: bodyTe,
     correctionsCount: correctionsCount,
     sources: sources,
-    imageUrl: null,
+    imageUrl: imageUrl,
   );
 }
 

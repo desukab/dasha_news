@@ -1,18 +1,55 @@
 /// Build-time configuration for the Dasha News client.
 ///
 /// The newsroom base URL is the single piece of deployment information the app
-/// needs. It defaults to the emulator-to-host mapping so that a developer
-/// running the FastAPI backend on this machine can read a live feed without
-/// configuration, and it can be overridden at runtime from the Profile screen.
+/// needs, and it is a *build* fact: where the backend is, and that it is not a
+/// developer's laptop. It is supplied at compile time and can still be
+/// overridden at runtime from the Profile screen.
 library;
 
-/// Default newsroom origin.
+/// The newsroom origin this build was compiled to talk to.
 ///
-/// `10.0.2.2` is the Android emulator's alias for the host's own loopback
-/// interface, so a backend on `http://127.0.0.1:8000` is reachable as this.
-/// On a physical device the value must be an address the phone can route to;
-/// it is editable in Profile → Server.
-const String defaultBaseUrl = 'http://10.0.2.2:8000';
+/// Pass it on the build command line:
+///
+///     flutter build apk --release \
+///       --dart-define=DASHA_API_BASE=https://news.dasha.example
+///
+/// Empty when no define was passed, which is the case [defaultBaseUrl]
+/// resolves.
+const String buildTimeBaseUrl = String.fromEnvironment(
+  'DASHA_API_BASE',
+  defaultValue: '',
+);
+
+/// True in a `--release` build. Used to decide whether the emulator-only
+/// fallback is even eligible, so it can never ship to a real phone.
+bool get isReleaseBuild => const bool.fromEnvironment('dart.vm.product');
+
+/// The newsroom origin a build uses before the reader overrides it in
+/// Profile → Server.
+///
+/// Order of preference: a value the reader already set (handled by
+/// [AppState], which reads this only when nothing is stored), then a value
+/// baked in at build time, then — debug builds only — the Android emulator's
+/// alias for the host's own loopback, so a developer running the newsroom on
+/// this machine reads a live feed with no configuration at all.
+///
+/// A release build with no `DASHA_API_BASE` has no backend. Rather than
+/// silently point every phone at an address no device can route to, it falls
+/// back to a loopback URL the reader will immediately recognise as wrong in
+/// Profile → Server, which is where they fix it.
+String get defaultBaseUrl {
+  if (buildTimeBaseUrl.isNotEmpty) return buildTimeBaseUrl;
+  return isReleaseBuild ? unresolvedBaseUrl : 'http://10.0.2.2:8000';
+}
+
+/// The placeholder used when neither a build-time value nor a stored reader
+/// preference exists and the build is a release. Prefixed so it is obvious in
+/// the Server field that it is not a real address.
+const String unresolvedBaseUrl = 'http://localhost:8000';
+
+/// True when [value] is the build's unresolved placeholder rather than a real
+/// newsroom address.
+bool isUnresolved(String value) => value.trim() == unresolvedBaseUrl;
 
 /// Key under which the overridden base URL is persisted.
 const String baseUrlKey = 'dasha.base_url';
