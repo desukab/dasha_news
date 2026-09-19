@@ -113,7 +113,7 @@ Future<void> _pumpCard(
   String locale = 'en',
   List<Fact> facts = const [],
 }) async {
-  final app = await _appState(locale: locale);
+  final app = await _appState(tester, locale: locale);
   await tester.pumpWidget(
     ChangeNotifierProvider<AppState>.value(
       value: app,
@@ -143,6 +143,12 @@ Story _withFacts(Story story, List<Fact> facts) {
     numSources: story.numSources,
     isBreaking: story.isBreaking,
     isDeveloping: story.isDeveloping,
+    // These belong on the card's story too: the conflict and correction chips
+    // are read from them, and dropping them here silently weakened the tests.
+    correctionsCount: story.correctionsCount,
+    sources: story.sources,
+    headlineTe: story.headlineTe,
+    imageUrl: story.imageUrl,
     facts: facts,
   );
 }
@@ -152,19 +158,31 @@ Story _withFacts(Story story, List<Fact> facts) {
 ///
 /// The cache directory is a plain [Directory] rather than
 /// `getTemporaryDirectory()`: the path_provider plugin is not available in the
-/// headless tester and would hang the run.
-Future<AppState> _appState({required String locale}) async {
+/// headless tester and would hang the run. Creating it under
+/// [WidgetTester.runAsync] matters too: a widget test runs inside a fake-async
+/// zone, and real `dart:io` file I/O scheduled there never completes on this
+/// host, which hangs the whole run. The card never reads the cache, so this is
+/// the only disk the test touches.
+Future<AppState> _appState(WidgetTester tester, {required String locale}) async {
   SharedPreferences.setMockInitialValues({localeKey: locale});
   final prefs = await SharedPreferences.getInstance();
-  final cache = await Directory.systemTemp.createTemp('dasha_test_cache');
-  addTearDown(() => cache.delete(recursive: true));
-  return AppState(
+  final cache = (await tester.runAsync(
+    () => Directory.systemTemp.createTemp('dasha_test_cache'),
+  ))!;
+  addTearDown(() => tester.runAsync(() => cache.delete(recursive: true)));
+  final state = AppState(
     storage: Storage(prefs, cache),
     api: ApiClient(
       baseUrl: 'http://newsroom.test',
       client: MockClient((_) async => throw Exception('no network in tests')),
     ),
   );
+  // The stored locale is only hydrated inside init(), which these tests do not
+  // call: it would reach the network and the connectivity plugin. Setting the
+  // language through the app's own setter keeps the card reading the same state
+  // a running app would have, rather than the default.
+  await state.setLocale(locale);
+  return state;
 }
 
 Story _story({
