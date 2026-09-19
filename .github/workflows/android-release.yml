@@ -140,7 +140,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact-name }}-release-aab
-          path: ${{ matrix.app }}/build/app/outputs/flutter-bundle/release/app-release.aab
+          # `flutter build appbundle` writes here. (flutter-bundle/, which looks
+          # like the obvious analogue of the APK's flutter-apk/, is where
+          # `flutter build bundle` puts the Flutter asset bundle instead.)
+          path: ${{ matrix.app }}/build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 30
 
