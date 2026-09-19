@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
+import '../../core/error_message.dart';
 import '../main_shell.dart';
 import '../../core/theme.dart';
 import '../../state/app_state.dart';
@@ -56,7 +57,7 @@ class _SubmitTipPageState extends State<SubmitTipPage> {
       if (!mounted) return;
       setState(() => _sending = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(exc.isOffline ? app.strings.offlineHint : exc.message)),
+        SnackBar(content: Text(errorMessage(app.strings, exc))),
       );
     }
   }

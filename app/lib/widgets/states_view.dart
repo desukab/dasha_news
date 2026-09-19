@@ -236,7 +236,10 @@ class ErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final strings = AppStrings.of(context, 'te');
+    // The reader's own language, not a fixed one: an error screen is the worst
+    // possible place to switch scripts on someone.
+    final strings =
+        AppStrings.of(context, context.watch<AppState>().locale);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),

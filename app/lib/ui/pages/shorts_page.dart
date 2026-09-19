@@ -28,6 +28,7 @@ class _ShortsPageState extends State<ShortsPage> {
   List<Story> _stories = [];
   bool _loading = true;
   String? _error;
+  bool _offline = false;
   String? _lastLocale;
 
   @override
@@ -45,6 +46,7 @@ class _ShortsPageState extends State<ShortsPage> {
     setState(() {
       _loading = true;
       _error = null;
+      _offline = false;
     });
     try {
       final page = await app.api.feed(
@@ -63,6 +65,7 @@ class _ShortsPageState extends State<ShortsPage> {
       if (!mounted) return;
       setState(() {
         _error = errorMessage(app.strings, exc);
+        _offline = exc.isOffline;
         _loading = false;
       });
     }
@@ -88,7 +91,7 @@ class _ShortsPageState extends State<ShortsPage> {
         body: ErrorState(
           message: _error!,
           onRetry: _load,
-          offlineHint: true,
+          offlineHint: _offline,
         ),
       );
     }

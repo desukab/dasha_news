@@ -33,13 +33,13 @@ void main() {
 
   group('the strings that used to be hard-coded English', () {
     test('Telugu has its own word for online', () {
-      expect(AppStrings('te').online, 'ఆన్‌లైన్');
-      expect(AppStrings('en').online, isNot(equals('ఆన్‌లైన్')));
+      expect(const AppStrings('te').online, 'ఆన్‌లైన్');
+      expect(const AppStrings('en').online, isNot(equals('ఆన్‌లైన్')));
     });
 
     test('the 404 page is not English-only', () {
-      expect(AppStrings('te').notFound, isNot('Page not found'));
-      expect(AppStrings('en').notFound, 'Page not found');
+      expect(const AppStrings('te').notFound, isNot('Page not found'));
+      expect(const AppStrings('en').notFound, 'Page not found');
     });
   });
 }
