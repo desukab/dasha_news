@@ -45,9 +45,12 @@ def _audio_url(session: Session, story_id: int) -> Optional[str]:
     ).scalar_one_or_none()
     if row is None or not row.path:
         return None
+    # Audio is written flat into media/audio/ (see render_audio), and the media
+    # route is /media/{kind}/{name} -- two segments. Interpolating the language
+    # here produced /media/audio/te/<file>, a path nothing serves, which left
+    # every narrated story 404ing and the app's audio tab dead.
     filename = str(row.path).rsplit("/", 1)[-1]
-    language = f"/{row.language}" if row.language else ""
-    return f"{get_settings().public_base_url.rstrip('/')}/media/audio{language}/{filename}"
+    return f"{get_settings().public_base_url.rstrip('/')}/media/audio/{filename}"
 
 
 def to_story_card(session: Session, story, *, language: str = "te") -> StoryCard:

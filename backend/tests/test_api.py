@@ -444,3 +444,40 @@ def test_media_path_traversal_blocked(client):
     assert client.get("/media/secrets/../../etc/passwd").status_code == 404
     # A missing file in a valid kind is a plain 404.
     assert client.get("/media/audio/does-not-exist.mp3").status_code == 404
+
+
+def test_audio_url_is_the_path_the_media_route_serves(session, client):
+    # Regression: the URL used to interpolate the language, producing
+    # /media/audio/te/<file>. render_audio writes flat into media/audio/ and
+    # the route is /media/{kind}/{name}, so that URL matched nothing and every
+    # narrated story 404'd -- the app's audio tab was dead for a one-segment
+    # bug.
+    from datetime import datetime
+
+    from newsroom.db.models import Audio
+
+    story = _story(session)
+    audio_dir = get_settings().resolved_media_dir / "audio"
+    audio_dir.mkdir(parents=True, exist_ok=True)
+    (audio_dir / "story-narration.wav").write_bytes(b"RIFF-wav-bytes")
+
+    session.add(Audio(story_id=story.id, language="te", voice="te-male",
+                      rate=160, duration_seconds=1.0,
+                      path=str(audio_dir / "story-narration.wav"),
+                      byte_size=15, status="ready",
+                      created_at=datetime.utcnow()))
+    session.commit()
+
+    item = client.get("/v1/feed").json()["items"][0]
+    assert item["has_audio"] is True
+    url = item["audio_url"]
+    base = get_settings().public_base_url
+    assert url == f"{base}/media/audio/story-narration.wav"
+    # No language segment, because there is no such directory to serve from.
+    assert "/audio/te/" not in url
+
+    # And the URL the API advertises is the one the media route resolves: the
+    # round trip is what was broken, so assert both ends agree.
+    served = client.get(url.split(base, 1)[1])
+    assert served.status_code == 200
+    assert served.content == b"RIFF-wav-bytes"
