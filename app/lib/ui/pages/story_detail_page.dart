@@ -108,6 +108,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
       // reader what happened.
       body: _error != null
           ? ErrorState(
+              // _error is already the localised sentence, set in _load.
               message: _error!,
               onRetry: _load,
               offlineHint: _offline,

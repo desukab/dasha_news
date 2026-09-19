@@ -89,6 +89,7 @@ class _ShortsPageState extends State<ShortsPage> {
       return TabScaffold(
         title: strings.shorts,
         body: ErrorState(
+          // _error is already the localised sentence, set in _load.
           message: _error!,
           onRetry: _load,
           offlineHint: _offline,

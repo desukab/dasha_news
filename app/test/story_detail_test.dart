@@ -62,6 +62,30 @@ void main() {
     expect(find.text('తెలంగాణ తాజా వార్త'), findsWidgets);
     expect(find.byType(FloatingActionButton), findsNWidgets(2));
   });
+
+  testWidgets('a server failure is not reported in the transport\'s words',
+      (tester) async {
+    // The newsroom answered, but with a 500 and an English debug detail.
+    // That detail belongs in a log, not in front of a Telugu reader.
+    final app = await _appState(tester, (request) async {
+      return http.Response(
+        jsonEncode({'detail': 'Internal Server Error: pool exhausted'}),
+        500,
+        headers: const {'content-type': 'application/json'},
+      );
+    });
+
+    await _pump(tester, app, const StoryDetailArgs(id: 99));
+    await tester.runAsync(
+        () => Future<void>.delayed(const Duration(seconds: 1)));
+    await tester.pumpAndSettle(const Duration(seconds: 1));
+
+    final strings = AppStrings(app.locale);
+    expect(find.byType(ErrorState), findsOneWidget);
+    // The title and the body both carry the generic sentence here.
+    expect(find.text(strings.errorGeneric), findsNWidgets(2));
+    expect(find.textContaining('pool exhausted'), findsNothing);
+  });
 }
 
 Future<void> _pump(
