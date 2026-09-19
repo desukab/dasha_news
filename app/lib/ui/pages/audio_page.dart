@@ -131,19 +131,22 @@ class _AudioPageState extends TabPageState<AudioPage> {
             onAction: _load,
           );
         }
-        return ListView.separated(
-          controller: _controller,
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 110),
-          physics: const AlwaysScrollableScrollPhysics(),
-          itemCount: narrated.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (context, index) {
-            final story = narrated[index];
-            return _AudioRow(
-              story: story,
-              onTap: () => _openStory(story),
-            );
-          },
+        return RefreshIndicator(
+          onRefresh: _load,
+          child: ListView.separated(
+            controller: _controller,
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 110),
+            physics: const AlwaysScrollableScrollPhysics(),
+            itemCount: narrated.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final story = narrated[index];
+              return _AudioRow(
+                story: story,
+                onTap: () => _openStory(story),
+              );
+            },
+          ),
         );
       },
     );
