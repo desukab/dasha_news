@@ -87,6 +87,8 @@ class AppStrings {
       errorOffline: 'వార్తలను చేరుకోలేకపోయాము',
       ok: 'సరే',
       cancel: 'రద్దు చేయి',
+      save: 'సేవ్ చేయి',
+      serverInvalid: 'ఇది చెల్లుబాటు అయ్యే చిరునామా కాదు — http:// లేదా https:// తో మొదలవ్వాలి',
       notFound: 'పేజీ దొరకలేదు',
       retry: 'మళ్లీ ప్రయత్నించండి',
       loadMore: 'మరిన్ని లోడ్ చేయండి',
@@ -179,6 +181,8 @@ class AppStrings {
       errorOffline: 'Vaarthalanu cherukole poyamu',
       ok: 'Sare',
       cancel: 'Raddu cheyyi',
+      save: 'Save chayyi',
+      serverInvalid: 'Idi chellubata ayye chirunama kadu — http:// leda https:// tho modalavvali',
       notFound: 'Page dorakaledu',
       retry: 'Malli prayatninchandi',
       loadMore: 'Marinni load cheyandi',
@@ -272,6 +276,8 @@ class AppStrings {
       errorOffline: 'Could not reach the newsroom',
       ok: 'OK',
       cancel: 'Cancel',
+      save: 'Save',
+      serverInvalid: 'That is not a valid address — it must start with http:// or https://',
       notFound: 'Page not found',
       retry: 'Try again',
       loadMore: 'Load more',
@@ -367,6 +373,8 @@ class AppStrings {
   String get errorOffline => _lang.errorOffline;
   String get ok => _lang.ok;
   String get cancel => _lang.cancel;
+  String get save => _lang.save;
+  String get serverInvalid => _lang.serverInvalid;
   String get notFound => _lang.notFound;
   String get retry => _lang.retry;
   String get loadMore => _lang.loadMore;
@@ -473,6 +481,8 @@ class _Lang {
     required this.errorOffline,
     required this.ok,
     required this.cancel,
+    required this.save,
+    required this.serverInvalid,
     required this.notFound,
     required this.retry,
     required this.loadMore,
@@ -562,6 +572,8 @@ class _Lang {
   final String errorOffline;
   final String ok;
   final String cancel;
+  final String save;
+  final String serverInvalid;
   final String notFound;
   final String retry;
   final String loadMore;

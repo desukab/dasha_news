@@ -82,32 +82,10 @@ class _ProfilePageState extends TabPageState<ProfilePage> {
   }
 
   Future<void> _changeServer(AppState app) async {
-    final controller = TextEditingController(text: app.baseUrl);
     await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(app.strings.server),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.url,
-          autocorrect: false,
-          decoration: InputDecoration(
-            hintText: app.strings.serverHint,
-            border: const OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(app.strings.ok),
-          ),
-        ],
-      ),
+      builder: (context) => _ServerDialog(app: app),
     );
-    final value = controller.text.trim();
-    controller.dispose();
-    if (value.isEmpty || value == app.baseUrl || !mounted) return;
-    await app.setBaseUrl(value);
   }
 
   @override
@@ -431,6 +409,79 @@ class _ProfilePageState extends TabPageState<ProfilePage> {
           onTap: onTap,
         ),
       ),
+    );
+  }
+}
+
+/// The newsroom-address editor, owning its own text controller.
+///
+/// The controller is a State field rather than a local in the call site
+/// because saving is asynchronous: the dialog is popped from inside an
+/// await, so a controller disposed by the caller would be used by the exit
+/// animation that is still holding the field.
+class _ServerDialog extends StatefulWidget {
+  const _ServerDialog({required this.app});
+
+  final AppState app;
+
+  @override
+  State<_ServerDialog> createState() => _ServerDialogState();
+}
+
+class _ServerDialogState extends State<_ServerDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.app.baseUrl);
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = widget.app.strings;
+    return AlertDialog(
+      title: Text(strings.server),
+      content: TextField(
+        controller: _controller,
+        keyboardType: TextInputType.url,
+        autocorrect: false,
+        decoration: InputDecoration(
+          hintText: strings.serverHint,
+          errorText: _error,
+          border: const OutlineInputBorder(),
+        ),
+        onChanged: (_) {
+          // Clear the complaint the moment the reader edits it away.
+          if (_error != null) setState(() => _error = null);
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(strings.cancel),
+        ),
+        FilledButton(
+          onPressed: () async {
+            final navigator = Navigator.of(context);
+            final value = _controller.text.trim();
+            final saved =
+                value.isEmpty ? false : await widget.app.setBaseUrl(value);
+            if (!mounted) return;
+            if (saved) {
+              navigator.pop();
+              return;
+            }
+            // setBaseUrl refuses a value with no http(s) scheme. Telling the
+            // reader why their address did not take beats closing the dialog
+            // and silently keeping the old one.
+            setState(() => _error = strings.serverInvalid);
+          },
+          child: Text(strings.save),
+        ),
+      ],
     );
   }
 }
