@@ -116,7 +116,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                 else ...[
                   _headline(context, app, strings),
                   _byline(context, app, strings),
-                  if (_story.imageUrl != null) _heroImage(context),
+                  if (_story.imageUrl != null) _heroImage(context, app),
                   if (_story.hasAudio) _listenBar(context, audio, strings),
                   _body(context, app, strings),
                   if (_story.updates.isNotEmpty)
@@ -265,7 +265,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
     );
   }
 
-  Widget _heroImage(BuildContext context) {
+  Widget _heroImage(BuildContext context, AppState app) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
@@ -276,7 +276,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
             child: AspectRatio(
               aspectRatio: 16 / 9,
               child: CachedNetworkImage(
-                imageUrl: _story.imageUrl!,
+                imageUrl: _story.imageFor(app.baseUrl)!,
                 fit: BoxFit.cover,
                 placeholder: (context, url) => Container(
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,

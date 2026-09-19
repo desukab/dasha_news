@@ -175,7 +175,7 @@ class _NowPlaying extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Row(
           children: [
-            _artwork(story),
+            _artwork(context, story),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -202,12 +202,13 @@ class _NowPlaying extends StatelessWidget {
     );
   }
 
-  Widget _artwork(Story story) {
+  Widget _artwork(BuildContext context, Story story) {
+    final image = story.imageFor(context.read<AppState>().baseUrl);
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
-      child: story.imageUrl != null
+      child: image != null
           ? CachedNetworkImage(
-              imageUrl: story.imageUrl!,
+              imageUrl: image,
               width: 52,
               height: 52,
               fit: BoxFit.cover,

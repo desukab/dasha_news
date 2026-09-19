@@ -51,7 +51,8 @@ class _ShortCard extends StatelessWidget {
     final strings = app.strings;
     final theme = Theme.of(context);
     final headline = story.headline(app.locale);
-    final hasImage = story.imageUrl != null;
+    final image = story.imageFor(app.baseUrl);
+    final hasImage = image != null;
 
     return GestureDetector(
       onTap: onTap,
@@ -60,7 +61,7 @@ class _ShortCard extends StatelessWidget {
         children: [
           if (hasImage)
             CachedNetworkImage(
-              imageUrl: story.imageUrl!,
+              imageUrl: image,
               fit: BoxFit.cover,
               placeholder: (context, url) => Container(
                 color: theme.colorScheme.surfaceContainerHighest,

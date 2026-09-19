@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../core/api_client.dart';
+import '../core/media_url.dart';
 import '../models/story.dart';
 import 'app_state.dart';
 
@@ -77,16 +78,12 @@ class AudioController extends ChangeNotifier {
     }
   }
 
-  /// The newsroom returns an absolute media URL. When it is relative (a
-  /// misconfigured `public_base_url`), we resolve it against the base.
+  /// The newsroom returns an absolute media URL. When it names its own
+  /// loopback machine — which its default `public_base_url` does — the reader's
+  /// phone would try to play a file from itself, so the origin is replaced with
+  /// the newsroom the app actually talks to. Relative URLs resolve the same way.
   String? _resolvedUrl(Story story) {
-    final raw = story.audioUrl;
-    if (raw == null || raw.isEmpty) return null;
-    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
-    final base = _appState.baseUrl.endsWith('/')
-        ? _appState.baseUrl.substring(0, _appState.baseUrl.length - 1)
-        : _appState.baseUrl;
-    return raw.startsWith('/') ? '$base$raw' : '$base/$raw';
+    return resolveMediaUrl(story.audioUrl, _appState.baseUrl);
   }
 
   Future<void> resume() async {

@@ -355,7 +355,8 @@ class _LeadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasPhoto = story.imageUrl != null && story.imageUrl!.isNotEmpty;
+    final image = story.imageFor(context.read<AppState>().baseUrl);
+    final hasPhoto = image != null && image.isNotEmpty;
     return _CardShell(
       onTap: onTap,
       child: Padding(
@@ -367,7 +368,7 @@ class _LeadCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
                 child: _Photo(
-                  url: story.imageUrl!,
+                  url: image,
                   width: double.infinity,
                   height: 200,
                   heroTag: heroTag,
@@ -470,7 +471,8 @@ class _SecondaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasPhoto = story.imageUrl != null && story.imageUrl!.isNotEmpty;
+    final image = story.imageFor(context.read<AppState>().baseUrl);
+    final hasPhoto = image != null && image.isNotEmpty;
     return _CardShell(
       onTap: onTap,
       child: Padding(
@@ -480,7 +482,7 @@ class _SecondaryCard extends StatelessWidget {
           children: [
             if (hasPhoto)
               _Photo(
-                url: story.imageUrl!,
+                url: image,
                 width: double.infinity,
                 height: 104,
                 heroTag: heroTag,
@@ -632,6 +634,7 @@ class _StandardCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final image = story.imageFor(context.read<AppState>().baseUrl);
     return _CardShell(
       onTap: onTap,
       child: Padding(
@@ -724,11 +727,9 @@ class _StandardCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (showImage &&
-                story.imageUrl != null &&
-                story.imageUrl!.isNotEmpty) ...[
+            if (showImage && image != null && image.isNotEmpty) ...[
               const SizedBox(width: 12),
-              _Photo(url: story.imageUrl!, width: 96, height: 96, radius: 10),
+              _Photo(url: image, width: 96, height: 96, radius: 10),
             ],
           ],
         ),

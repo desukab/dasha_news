@@ -1,4 +1,5 @@
 import '../core/format.dart';
+import '../core/media_url.dart';
 
 /// The reader-facing model of a newsroom story.
 ///
@@ -117,6 +118,15 @@ class Story {
   String get lead => leadTe?.isNotEmpty == true
       ? leadTe!
       : body('te').split(RegExp(r'[।.]'))[0];
+
+  /// The photograph, on the origin the reader's phone can actually reach.
+  ///
+  /// The newsroom builds this URL from its own `public_base_url`, which names
+  /// its own loopback machine, and sometimes hands a bare path with no origin
+  /// at all. Either is unplayable on a device. Resolving at render time — not
+  /// in `fromJson` — keeps the resolved origin out of the offline cache, which
+  /// would otherwise go stale the moment the reader changes server.
+  String? imageFor(String baseUrl) => resolveMediaUrl(imageUrl, baseUrl);
 
   String sectionLabel(String language) {
     if (language == 'en') {
