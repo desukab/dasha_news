@@ -10,6 +10,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:dasha_editor/core/config.dart';
 import 'package:dasha_editor/state/session_state.dart';
 
 class LoginPage extends StatefulWidget {
@@ -142,9 +143,12 @@ class _LoginPageState extends State<LoginPage> {
                           controller: _server,
                           keyboardType: TextInputType.url,
                           autocorrect: false,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Newsroom base URL',
-                            hintText: 'http://10.0.2.2:8000',
+                            // The address this build actually uses, so the
+                            // hint never describes a server the phone cannot
+                            // reach.
+                            hintText: defaultBaseUrl,
                           ),
                         ),
                         const SizedBox(height: 8),
