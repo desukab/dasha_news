@@ -1,7 +1,6 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_strings.dart';
@@ -323,12 +322,12 @@ class _HomePageState extends TabPageState<HomePage> {
   ///
   /// Formatted off the English names and translated here rather than handed to
   /// `intl` with a Telugu locale, because Telugu locale data is not loaded
-  /// unless the app initialises it explicitly, and a date line must never be
-  /// the thing that takes the front page down.
+  /// unless the app initialises it explicitly. [formatIndianDate] carries the
+  /// same reasoning one step further: even the English data failing to load
+  /// yields a plain date rather than no front page at all.
   String _dateLine(AppStrings strings) {
-    final english = DateFormat('EEEE, d MMMM y', 'en_IN')
-        .format(DateTime.now())
-        .split(', ');
+    final english =
+        formatIndianDate('EEEE, d MMMM y', DateTime.now()).split(', ');
     final weekday = english.first;
     final rest = english.last.split(' ');
     if (strings.code != 'te') return english.join(', ');

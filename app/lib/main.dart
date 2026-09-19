@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,6 +14,13 @@ import 'state/history_recorder.dart';
 /// initialised exactly once and no screen ever sees a half-ready store.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // The front page formats its date line with an explicit en_IN locale, and
+  // intl will not serve an explicit locale until its symbol data has been
+  // loaded — DateFormat throws LocaleDataException otherwise. That throw lands
+  // inside the list's item builder, where a release build swallows it into a
+  // blank ErrorWidget, so this runs before the first frame is ever drawn.
+  await initializeDateFormatting('en_IN');
 
   final prefs = await SharedPreferences.getInstance();
   final cacheDir = await getTemporaryDirectory();

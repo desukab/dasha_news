@@ -9,6 +9,21 @@ import 'package:intl/intl.dart';
 
 import 'app_strings.dart';
 
+/// Formats [when] with [pattern] in the Indian English locale.
+///
+/// intl throws [LocaleDataException] for an explicit locale whose symbol data
+/// has not been loaded by `initializeDateFormatting`. That used to take the
+/// whole front page down, because the throw landed inside the list builder and
+/// a release build renders the failed item as a blank ErrorWidget. A date is
+/// never worth that, so a formatting failure degrades to a plain date instead.
+String formatIndianDate(String pattern, DateTime when) {
+  try {
+    return DateFormat(pattern, 'en_IN').format(when);
+  } catch (_) {
+    return '${when.day} ${when.month} ${when.year}';
+  }
+}
+
 String relativeTime(DateTime? when, {DateTime? now, AppStrings? strings}) {
   if (when == null) {
     return '';
@@ -28,7 +43,7 @@ String relativeTime(DateTime? when, {DateTime? now, AppStrings? strings}) {
   if (delta.inDays < 7) {
     return '${delta.inDays} ${s.daysAgo}';
   }
-  return DateFormat('d MMM y', 'en_IN').format(when.toLocal());
+  return formatIndianDate('d MMM y', when.toLocal());
 }
 
 /// Absolute timestamp for the story page, where a reader may need to quote it.
@@ -36,7 +51,7 @@ String absoluteTime(DateTime? when) {
   if (when == null) {
     return '';
   }
-  return DateFormat('d MMMM y, h:mm a', 'en_IN').format(when.toLocal());
+  return formatIndianDate('d MMMM y, h:mm a', when.toLocal());
 }
 
 /// A rough reading-time estimate. Telugu is read more slowly per glyph than
