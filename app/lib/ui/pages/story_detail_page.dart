@@ -103,7 +103,10 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
     final audio = context.watch<AudioController>();
     final strings = app.strings;
     return Scaffold(
-      body: _error != null && _loading
+      // A load that failed leaves _loading false, so gating the error state
+      // on _loading would render the empty stub story instead of telling the
+      // reader what happened.
+      body: _error != null
           ? ErrorState(
               message: _error!,
               onRetry: _load,
