@@ -249,21 +249,24 @@ class _NowPlaying extends StatelessWidget {
               style: theme.textTheme.labelSmall,
             ),
             const Spacer(),
-            if (audio.error != null)
-              Text(
-                audio.error!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall
-                    ?.copyWith(color: theme.colorScheme.error),
-              )
-            else
-              Text(
-                audio.isLoading ? '…' : _mmss(audio.duration),
-                style: theme.textTheme.labelSmall,
-              ),
+            // A failure gets its own line below rather than this row, so the
+            // whole sentence is read instead of the first few words of it.
+            Text(
+              audio.isLoading ? '…' : _mmss(audio.duration),
+              style: theme.textTheme.labelSmall,
+            ),
           ],
         ),
+        if (audio.error != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            audio.error!,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall
+                ?.copyWith(color: theme.colorScheme.error),
+          ),
+        ],
       ],
     );
   }
