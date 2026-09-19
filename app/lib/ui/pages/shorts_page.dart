@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
+import '../../core/error_message.dart';
 import '../../models/story.dart';
 import '../../state/app_state.dart';
 import '../../state/history_recorder.dart';
@@ -61,7 +62,7 @@ class _ShortsPageState extends State<ShortsPage> {
     } on ApiException catch (exc) {
       if (!mounted) return;
       setState(() {
-        _error = exc.message;
+        _error = errorMessage(app.strings, exc);
         _loading = false;
       });
     }

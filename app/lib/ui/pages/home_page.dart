@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_strings.dart';
+import '../../core/error_message.dart';
 import '../../core/config.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
@@ -163,7 +164,7 @@ class _HomePageState extends TabPageState<HomePage> {
     }
     if (_list.isHardEmpty) {
       return ErrorState(
-        message: _list.error?.message ?? strings.errorGeneric,
+        message: errorMessage(strings, _list.error),
         onRetry: () => _list.refresh(),
       );
     }

@@ -83,6 +83,7 @@ class AppStrings {
       offline: 'ఆఫ్‌లైన్',
       offlineHint: 'చివరిగా దాచిన వార్తలు చూపిస్తున్నాము',
       errorGeneric: 'ఏదో తప్పు జరిగింది',
+      errorOffline: 'వార్తలను చేరుకోలేకపోయాము',
       retry: 'మళ్లీ ప్రయత్నించండి',
       loadMore: 'మరిన్ని లోడ్ చేయండి',
       loading: 'లోడ్ అవుతోంది',
@@ -170,6 +171,7 @@ class AppStrings {
       offline: 'Offline',
       offlineHint: 'Chivarigi dachina vaarthalu chupistunnamu',
       errorGeneric: 'Edo tappu jarigindi',
+      errorOffline: 'Vaarthalanu cherukole poyamu',
       retry: 'Malli prayatninchandi',
       loadMore: 'Marinni load cheyandi',
       loading: 'Load avutondi',
@@ -258,6 +260,7 @@ class AppStrings {
       offline: 'Offline',
       offlineHint: 'Showing the last stories we could keep',
       errorGeneric: 'Something went wrong',
+      errorOffline: 'Could not reach the newsroom',
       retry: 'Try again',
       loadMore: 'Load more',
       loading: 'Loading',
@@ -348,6 +351,7 @@ class AppStrings {
   String get offline => _lang.offline;
   String get offlineHint => _lang.offlineHint;
   String get errorGeneric => _lang.errorGeneric;
+  String get errorOffline => _lang.errorOffline;
   String get retry => _lang.retry;
   String get loadMore => _lang.loadMore;
   String get loading => _lang.loading;
@@ -449,6 +453,7 @@ class _Lang {
     required this.offline,
     required this.offlineHint,
     required this.errorGeneric,
+    required this.errorOffline,
     required this.retry,
     required this.loadMore,
     required this.loading,
@@ -533,6 +538,7 @@ class _Lang {
   final String offline;
   final String offlineHint;
   final String errorGeneric;
+  final String errorOffline;
   final String retry;
   final String loadMore;
   final String loading;

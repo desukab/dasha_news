@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_client.dart';
 import '../../core/app_strings.dart';
+import '../../core/error_message.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../models/story.dart';
@@ -74,7 +75,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
     } on ApiException catch (exc) {
       if (!mounted) return;
       setState(() {
-        _error = exc.message;
+        _error = errorMessage(app.strings, exc);
         _offline = exc.isOffline;
         _loading = false;
       });

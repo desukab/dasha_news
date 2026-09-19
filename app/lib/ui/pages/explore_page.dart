@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/format.dart';
+import '../../core/error_message.dart';
 import '../../core/theme.dart';
 import '../../models/story.dart';
 import '../../models/page.dart';
@@ -260,7 +261,7 @@ class _ExplorePageState extends TabPageState<ExplorePage> {
         }
         if (_sectionList.isHardEmpty) {
           return SliverError(
-            message: _sectionList.error?.message ?? app.strings.errorGeneric,
+            message: errorMessage(app.strings, _sectionList.error),
             onRetry: () => _sectionList.refresh(),
           );
         }

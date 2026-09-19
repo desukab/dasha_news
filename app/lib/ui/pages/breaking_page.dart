@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_strings.dart';
+import '../../core/error_message.dart';
 import '../../core/theme.dart';
 import '../../models/story.dart';
 import '../../state/app_state.dart';
@@ -100,7 +101,7 @@ class _BreakingPageState extends TabPageState<BreakingPage> {
         }
         if (_list.isHardEmpty) {
           return ErrorState(
-            message: _list.error?.message ?? strings.errorGeneric,
+            message: errorMessage(strings, _list.error),
             onRetry: () => _list.refresh(),
           );
         }

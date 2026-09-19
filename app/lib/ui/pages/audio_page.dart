@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_strings.dart';
+import '../../core/error_message.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../models/story.dart';
@@ -118,7 +119,7 @@ class _AudioPageState extends TabPageState<AudioPage> {
         }
         if (_list.isHardEmpty) {
           return ErrorState(
-            message: _list.error?.message ?? strings.errorGeneric,
+            message: errorMessage(strings, _list.error),
             onRetry: _load,
           );
         }
