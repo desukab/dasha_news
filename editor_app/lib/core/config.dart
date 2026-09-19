@@ -6,13 +6,45 @@
 /// newsroom address is the only piece of deployment information it keeps.
 library;
 
+/// The newsroom origin this build was compiled to talk to.
+///
+/// Supplied at build time, because a release must not point at a developer's
+/// laptop:
+///
+///     flutter build apk --release \
+///       --dart-define=DASHA_API_BASE=https://newsroom.example
+///
+/// A reader of the override below can still type their own address from
+/// Login → Server, and that wins.
+const String buildTimeBaseUrl = String.fromEnvironment(
+  'DASHA_API_BASE',
+  defaultValue: '',
+);
+
+/// True in a `--release` build, so the emulator alias can be ruled out of a
+/// build that ships to a real phone.
+bool get isReleaseBuild => const bool.fromEnvironment('dart.vm.product');
+
 /// Default newsroom origin.
 ///
-/// `10.0.2.2` is the Android emulator's alias for the host's own loopback
-/// interface, so a backend on `http://127.0.0.1:8000` is reachable as this.
-/// On a physical device the value must be an address the phone can route to;
-/// it is editable from Login → Server.
-const String defaultBaseUrl = 'http://10.0.2.2:8000';
+/// With a build-time value, that value is it. Without one, only a debug build
+/// may use `10.0.2.2` — the Android emulator's alias for the host's own
+/// loopback, which reaches a newsroom on the developer's own machine and
+/// nothing else. A release with no define has no backend, so it falls back to
+/// an explicit placeholder that is visibly wrong in Login → Server rather
+/// than an address no phone can route to.
+String get defaultBaseUrl {
+  if (buildTimeBaseUrl.isNotEmpty) return buildTimeBaseUrl;
+  return isReleaseBuild ? unresolvedBaseUrl : 'http://10.0.2.2:8000';
+}
+
+/// The placeholder used when nothing is configured and the build is a
+/// release. Prefixed so the desk sees at a glance that it is not a real
+/// newsroom address.
+const String unresolvedBaseUrl = 'http://localhost:8000';
+
+/// True when [value] is the unresolved placeholder.
+bool isUnresolved(String value) => value.trim() == unresolvedBaseUrl;
 
 /// Key under which the overridden base URL is persisted.
 const String baseUrlKey = 'dasha_editor.base_url';
