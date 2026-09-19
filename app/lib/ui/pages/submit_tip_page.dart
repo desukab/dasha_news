@@ -79,14 +79,15 @@ class _SubmitTipPageState extends State<SubmitTipPage> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppTheme.breaking.withValues(alpha: 0.07),
+                color: SemanticColour.breaking.inkOf(context)
+                    .withValues(alpha: 0.07),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.shield_outlined,
-                      size: 18, color: AppTheme.breaking),
+                  Icon(Icons.shield_outlined,
+                      size: 18, color: SemanticColour.breaking.inkOf(context)),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -130,7 +131,7 @@ class _SubmitTipPageState extends State<SubmitTipPage> {
               height: 52,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.breaking,
+                  backgroundColor: SemanticColour.breaking.badge,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),

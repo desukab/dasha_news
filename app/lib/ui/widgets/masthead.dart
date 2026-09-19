@@ -30,12 +30,11 @@ class DashaMasthead extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dims = _dims(size);
-    final ink = onColour ? Colors.white : Theme.of(context).colorScheme.onSurface;
+    final ink = onColour ? mastheadPaper : Theme.of(context).colorScheme.onSurface;
     final rule = onColour
-        ? Colors.white.withValues(alpha: 0.75)
+        ? mastheadRule
         : Theme.of(context).colorScheme.outlineVariant;
-    final folio =
-        onColour ? Colors.white.withValues(alpha: 0.72) : ink.withValues(alpha: 0.62);
+    final folio = onColour ? mastheadPaper : ink.withValues(alpha: 0.62);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -168,7 +167,7 @@ class DashaMonogram extends StatelessWidget {
   Widget build(BuildContext context) {
     final glyph = _MonogramGlyph(
       extent: extent,
-      colour: Colors.white,
+      colour: mastheadPaper,
     );
     if (onColour) return glyph;
     return Container(
@@ -237,12 +236,12 @@ class MastheadFolio extends StatelessWidget {
     final strings = AppStrings.of(context, 'te');
     return Text(
       date ?? strings.tagline,
-      style: TextStyle(
+      style: const TextStyle(
         fontFamily: 'DashaSerif',
         fontSize: 11,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.4,
-        color: Colors.white.withValues(alpha: 0.72),
+        color: mastheadPaper,
       ),
     );
   }

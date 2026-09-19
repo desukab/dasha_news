@@ -141,7 +141,8 @@ class _BreakingPageState extends TabPageState<BreakingPage> {
                 decoration: BoxDecoration(
                   border: Border(
                     left: BorderSide(
-                        color: AppTheme.breaking.withValues(alpha: 0.7),
+                        color: SemanticColour.breaking.inkOf(context)
+                            .withValues(alpha: 0.7),
                         width: 3),
                   ),
                 ),

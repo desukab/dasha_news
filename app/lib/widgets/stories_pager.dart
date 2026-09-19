@@ -95,9 +95,11 @@ class _ShortCard extends StatelessWidget {
                   Row(
                     children: [
                       if (story.isBreaking)
-                        _tag(context, strings.breaking, AppTheme.breaking),
+                        _tag(context, strings.breaking,
+                            SemanticColour.breaking.badge),
                       if (story.isDeveloping && !story.isBreaking)
-                        _tag(context, strings.developing, AppTheme.developing),
+                        _tag(context, strings.developing,
+                            SemanticColour.developing.badge),
                       const Spacer(),
                       if (story.hasAudio)
                         Container(

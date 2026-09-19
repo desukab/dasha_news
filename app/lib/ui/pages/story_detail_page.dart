@@ -179,9 +179,11 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
             Row(
               children: [
                 if (_story.isBreaking)
-                  _kicker(context, strings.breaking, AppTheme.breaking)
+                  _kicker(context, strings.breaking,
+                      SemanticColour.breaking.inkOf(context))
                 else if (_story.isDeveloping)
-                  _kicker(context, strings.developing, AppTheme.developing)
+                  _kicker(context, strings.developing,
+                      SemanticColour.developing.inkOf(context))
                 else
                   _kicker(context, _story.sectionLabel(app.locale),
                       Theme.of(context).colorScheme.primary),
@@ -396,12 +398,14 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: update.isCorrection
-                      ? AppTheme.disputed.withValues(alpha: 0.07)
+                      ? SemanticColour.disputed.inkOf(context)
+                          .withValues(alpha: 0.07)
                       : Theme.of(context).colorScheme.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(12),
                   border: update.isCorrection
                       ? Border.all(
-                          color: AppTheme.disputed.withValues(alpha: 0.3))
+                          color: SemanticColour.disputed.inkOf(context)
+                              .withValues(alpha: 0.3))
                       : null,
                 ),
                 child: Column(
@@ -415,7 +419,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                               : Icons.update_rounded,
                           size: 16,
                           color: update.isCorrection
-                              ? AppTheme.disputed
+                              ? SemanticColour.disputed.inkOf(context)
                               : Theme.of(context).colorScheme.primary,
                         ),
                         const SizedBox(width: 6),
@@ -426,7 +430,8 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                           style:
                               Theme.of(context).textTheme.labelLarge?.copyWith(
                                     color: update.isCorrection
-                                        ? AppTheme.disputed
+                                        ? SemanticColour.disputed.inkOf(
+                                            context)
                                         : Theme.of(context)
                                             .colorScheme
                                             .primary,
@@ -486,7 +491,8 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border(
                     left: BorderSide(
-                      color: evidenceColor(fact.evidenceLevel),
+                      color:
+                          evidenceColour(fact.evidenceLevel).inkOf(context),
                       width: 3,
                     ),
                   ),
@@ -542,7 +548,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
   }
 
   Widget _evidenceTag(BuildContext context, Fact fact) {
-    final colour = evidenceColor(fact.evidenceLevel);
+    final colour = evidenceColour(fact.evidenceLevel).inkOf(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -613,9 +619,11 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                                         : Icons.info_outline_rounded,
                                 size: 13,
                                 color: source.corroborates
-                                    ? AppTheme.fact
-                                    : (source.conflictsWith ?? '').isNotEmpty
-                                        ? AppTheme.disputed
+                                    ? SemanticColour.fact.inkOf(context)
+                                    : (source.conflictsWith ?? '')
+                                            .isNotEmpty
+                                        ? SemanticColour.disputed.inkOf(
+                                            context)
                                         : Theme.of(context)
                                             .colorScheme
                                             .onSurfaceVariant,
@@ -635,10 +643,12 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                                       .labelSmall
                                       ?.copyWith(
                                         color: source.corroborates
-                                            ? AppTheme.fact
+                                            ? SemanticColour.fact.inkOf(
+                                                context)
                                             : (source.conflictsWith ?? '')
                                                     .isNotEmpty
-                                                ? AppTheme.disputed
+                                                ? SemanticColour.disputed
+                                                    .inkOf(context)
                                                 : Theme.of(context)
                                                     .colorScheme
                                                     .onSurfaceVariant,
@@ -664,7 +674,8 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                               source.conflictsWith!,
                               style:
                                   Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: AppTheme.disputed,
+                                        color: SemanticColour.disputed
+                                            .inkOf(context),
                                         fontStyle: FontStyle.italic,
                                       ),
                             ),
@@ -714,14 +725,14 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                 context,
                 label: strings.evidence,
                 value: _story.evidenceScore,
-                colour: AppTheme.fact,
+                colour: SemanticColour.fact.inkOf(context),
               ),
               const SizedBox(height: 8),
               _meter(
                 context,
                 label: strings.confidence,
                 value: _story.confidence,
-                colour: AppTheme.developing,
+                colour: SemanticColour.developing.inkOf(context),
               ),
               const SizedBox(height: 12),
               Row(
@@ -744,14 +755,15 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.edit_outlined,
-                        size: 16, color: AppTheme.developing),
+                    Icon(Icons.edit_outlined,
+                        size: 16, color: SemanticColour.developing.inkOf(
+                            context)),
                     const SizedBox(width: 6),
                     Text(
                       '${strings.corrections}: ${_story.correctionsCount} · '
                           'v${_story.version}',
                       style: theme.textTheme.bodySmall?.copyWith(
-                            color: AppTheme.developing,
+                            color: SemanticColour.developing.inkOf(context),
                             fontWeight: FontWeight.w600,
                           ),
                     ),

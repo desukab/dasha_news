@@ -108,7 +108,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     height: 4,
                     decoration: BoxDecoration(
                       color: i <= _step
-                          ? AppTheme.breaking
+                          ? SemanticColour.breaking.badge
                           : Theme.of(context)
                               .colorScheme
                               .surfaceContainerHighest,
@@ -126,7 +126,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
             height: 52,
             child: FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.breaking,
+                backgroundColor: SemanticColour.breaking.badge,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -235,12 +235,12 @@ class _LanguageTile extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: selected
-                ? AppTheme.breaking.withValues(alpha: 0.08)
+                ? SemanticColour.breaking.inkOf(context).withValues(alpha: 0.08)
                 : Theme.of(context).colorScheme.surfaceContainerLow,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: selected
-                  ? AppTheme.breaking
+                  ? SemanticColour.breaking.inkOf(context)
                   : Colors.transparent,
               width: selected ? 1.6 : 0,
             ),
@@ -270,7 +270,7 @@ class _LanguageTile extends StatelessWidget {
               Icon(
                 selected ? Icons.check_circle_rounded : Icons.circle_outlined,
                 color: selected
-                    ? AppTheme.breaking
+                    ? SemanticColour.breaking.inkOf(context)
                     : Theme.of(context).colorScheme.outline,
                 size: 22,
               ),
@@ -368,8 +368,8 @@ class _SummaryStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 8),
-          const Icon(Icons.check_circle_rounded,
-              size: 48, color: AppTheme.fact),
+          Icon(Icons.check_circle_rounded,
+              size: 48, color: SemanticColour.fact.inkOf(context)),
           const SizedBox(height: 16),
           Text(
             strings.getStarted,

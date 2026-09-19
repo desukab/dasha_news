@@ -213,7 +213,7 @@ class _NowPlaying extends StatelessWidget {
           : Container(
               width: 52,
               height: 52,
-              color: AppTheme.breaking,
+              color: SemanticColour.breaking.badge,
               child: const Icon(Icons.graphic_eq_rounded,
                   color: Colors.white, size: 26),
             ),

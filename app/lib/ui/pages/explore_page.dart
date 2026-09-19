@@ -170,8 +170,8 @@ class _ExplorePageState extends TabPageState<ExplorePage> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
         child: Row(
           children: [
-            const Icon(Icons.autorenew_rounded,
-                size: 18, color: AppTheme.developing),
+            Icon(Icons.autorenew_rounded,
+                size: 18, color: SemanticColour.developing.inkOf(context)),
             const SizedBox(width: 8),
             Text(app.strings.developing,
                 style: Theme.of(context).textTheme.titleMedium),

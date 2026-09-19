@@ -64,14 +64,6 @@ const Color _kSeed = Color(0xFFB3261E);
 class AppTheme {
   const AppTheme._();
 
-  static const Color breaking = Color(0xFFC62828);
-  static const Color developing = Color(0xFF1565C0);
-  static const Color fact = Color(0xFF2E7D32);
-  static const Color claim = Color(0xFFEF6C00);
-  static const Color allegation = Color(0xFFAD1457);
-  static const Color unverified = Color(0xFF6A1B9A);
-  static const Color disputed = Color(0xFFC62828);
-
   static ThemeData light() {
     final scheme = ColorScheme.fromSeed(
       seedColor: _kSeed,
@@ -199,25 +191,116 @@ class AppTheme {
   }
 }
 
-/// Colour used to tag a claim's evidence level, mirrored from the newsroom's
-/// own `EvidenceLevel` taxonomy so the app and the backend never disagree.
-Color evidenceColor(String? level) {
+/// A semantic colour, resolved against the surface it is painted on.
+///
+/// The newsroom's evidence taxonomy is carried in colour — breaking, fact,
+/// claim, dispute — and each hue has to serve as a chip label, an icon and a
+/// badge ground. A single mid-tone cannot: a colour dark enough to read as
+/// type on white paper is too dark to read on a dark card, and a colour light
+/// enough for a dark card will not take white type on a badge. So each hue
+/// ships as three values, each chosen to clear its WCAG threshold by
+/// construction rather than by eye:
+///
+///   [inkLight] — type on a light card, ≥ 4.5:1 against `#FFFFFF`
+///   [inkDark]  — type on a dark card,  ≥ 4.5:1 against `#1B2027`
+///   [badge]    — a ground for white type, ≥ 5:1, since badge type is 10px
+///
+/// [contrast_test.dart] holds all three bars, so a value that drifts back
+/// under its threshold fails the build instead of failing a reader.
+///
+/// `claim` is the one hue that had to move: `#EF6C00` on white is 3.08:1,
+/// under the 4.5 body-text bar, so it is deepened to `#BA5400`. The rest kept
+/// their light-mode values, which already cleared the bar, and gained a dark
+/// twin — the dark-mode chips were the worst failures in the app, as low as
+/// 1.74:1 for an unverified tag that a reader is being asked to trust.
+enum SemanticColour {
+  breaking(
+    inkLight: Color(0xFFC62828),
+    inkDark: Color(0xFFD76A6A),
+    badge: Color(0xFFC62828),
+  ),
+  developing(
+    inkLight: Color(0xFF1565C0),
+    inkDark: Color(0xFF548ED1),
+    badge: Color(0xFF1565C0),
+  ),
+  fact(
+    inkLight: Color(0xFF2E7D32),
+    inkDark: Color(0xFF5B995F),
+    badge: Color(0xFF2E7D32),
+  ),
+  claim(
+    inkLight: Color(0xFFBA5400),
+    inkDark: Color(0xFFEF6C00),
+    badge: Color(0xFFB55200),
+  ),
+  allegation(
+    inkLight: Color(0xFFAD1457),
+    inkDark: Color(0xFFCC6D96),
+    badge: Color(0xFFAD1457),
+  ),
+  unverified(
+    inkLight: Color(0xFF6A1B9A),
+    inkDark: Color(0xFFA87AC4),
+    badge: Color(0xFF6A1B9A),
+  ),
+  disputed(
+    inkLight: Color(0xFFC62828),
+    inkDark: Color(0xFFD76A6A),
+    badge: Color(0xFFC62828),
+  );
+
+  const SemanticColour({
+    required this.inkLight,
+    required this.inkDark,
+    required this.badge,
+  });
+
+  final Color inkLight;
+  final Color inkDark;
+  final Color badge;
+
+  /// Ink for the surface the reader is looking at.
+  Color ink(Brightness brightness) =>
+      brightness == Brightness.light ? inkLight : inkDark;
+
+  /// Ink for the surface in front of the caller. Prefer this over passing
+  /// [Brightness] around; it keeps the resolution at the paint site.
+  Color inkOf(BuildContext context) => ink(Theme.of(context).brightness);
+}
+
+/// Type and ground colours for the masthead band.
+///
+/// These are opaque, not alpha-faded. A white at 0.72 over the masthead red is
+/// 3.26:1 — under the body-text bar and visibly washed out — because fading
+/// white toward the red it sits on fades it toward the colour it must contrast
+/// with. A warm paper tint at full opacity is 6.17:1 on the *lightest* stop of
+/// the gradient, so it holds across the whole band.
+const Color mastheadPaper = Color(0xFFFFF7F2);
+const Color mastheadRule = Color(0xFFFFF7F2);
+
+/// The hue a claim's evidence level is painted in, mirrored from the
+/// newsroom's own `EvidenceLevel` taxonomy so the app and the backend never
+/// disagree.
+///
+/// Returns the token rather than a [Color]: the same level may be an ink on a
+/// light card and an icon on a dark one, and the caller is the one holding the
+/// [BuildContext] that decides which.
+SemanticColour evidenceColour(String? level) {
   switch ((level ?? '').toLowerCase()) {
     case 'fact':
     case 'official':
-      return AppTheme.fact;
-    case 'claim':
-      return AppTheme.claim;
+      return SemanticColour.fact;
     case 'allegation':
-      return AppTheme.allegation;
+      return SemanticColour.allegation;
     case 'forecast':
     case 'opinion':
-      return AppTheme.unverified;
     case 'unverified':
-      return AppTheme.unverified;
+      return SemanticColour.unverified;
     case 'disputed':
-      return AppTheme.disputed;
+      return SemanticColour.disputed;
+    case 'claim':
     default:
-      return AppTheme.claim;
+      return SemanticColour.claim;
   }
 }

@@ -132,14 +132,14 @@ class _Badge extends StatelessWidget {
   const _Badge({required this.label, required this.colour});
 
   final String label;
-  final Color colour;
+  final SemanticColour colour;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: colour,
+        color: colour.badge,
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(
@@ -173,7 +173,7 @@ Widget? _evidenceChip(
     context,
     icon: Icons.shield_outlined,
     label: strongest.label(language),
-    colour: evidenceColor(level),
+    colour: evidenceColour(level),
   );
 }
 
@@ -186,35 +186,44 @@ Widget _sourcesChip(
     context,
     icon: story.isCorroborated ? Icons.verified_rounded : Icons.info_outline,
     label: '${story.numSources} ${strings.sources}',
-    colour: story.isCorroborated ? AppTheme.fact : AppTheme.claim,
+    colour:
+        story.isCorroborated ? SemanticColour.fact : SemanticColour.claim,
     filled: story.isCorroborated,
   );
 }
 
+/// A tonal tag: the ink at full strength for the label and icon, a faint tint
+/// of the same ink for the ground.
+///
+/// The ground is deliberately *not* a solid fill. A solid mid-tone would need
+/// white type to stay legible, and white type on a mid-tone is the one
+/// combination the palette cannot serve in both brightnesses — so the ink
+/// stays the ink and the ground stays out of its way.
 Widget _chip(
   BuildContext context, {
   required IconData icon,
   required String label,
-  required Color colour,
+  required SemanticColour colour,
   bool filled = false,
 }) {
   final theme = Theme.of(context);
+  final ink = colour.inkOf(context);
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
     decoration: BoxDecoration(
-      color: colour.withValues(alpha: filled ? 0.14 : 0.08),
+      color: ink.withValues(alpha: filled ? 0.16 : 0.09),
       borderRadius: BorderRadius.circular(6),
-      border: Border.all(color: colour.withValues(alpha: filled ? 0.4 : 0.22)),
+      border: Border.all(color: ink.withValues(alpha: filled ? 0.45 : 0.24)),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 12, color: colour),
+        Icon(icon, size: 12, color: ink),
         const SizedBox(width: 4),
         Text(
           label,
           style: theme.textTheme.labelSmall?.copyWith(
-            color: colour,
+            color: ink,
             fontWeight: FontWeight.w700,
             fontSize: 10.5,
           ),
@@ -375,9 +384,9 @@ class _LeadCard extends StatelessWidget {
     return Row(
       children: [
         if (story.isBreaking)
-          _Badge(label: strings.breaking, colour: AppTheme.breaking),
+          _Badge(label: strings.breaking, colour: SemanticColour.breaking),
         if (story.isDeveloping && !story.isBreaking) ...[
-          _Badge(label: strings.developing, colour: AppTheme.developing),
+          _Badge(label: strings.developing, colour: SemanticColour.developing),
         ],
       ],
     );
@@ -396,7 +405,7 @@ class _LeadCard extends StatelessWidget {
             context,
             icon: Icons.warning_amber_rounded,
             label: strings.inConflict,
-            colour: AppTheme.disputed,
+            colour: SemanticColour.disputed,
             filled: true,
           ),
         if (story.isCorrected)
@@ -404,7 +413,7 @@ class _LeadCard extends StatelessWidget {
             context,
             icon: Icons.edit_outlined,
             label: strings.corrections,
-            colour: AppTheme.developing,
+            colour: SemanticColour.developing,
           ),
       ],
     );
@@ -476,9 +485,9 @@ class _SecondaryCard extends StatelessWidget {
     return Row(
       children: [
         if (story.isBreaking)
-          _Badge(label: strings.breaking, colour: AppTheme.breaking),
+          _Badge(label: strings.breaking, colour: SemanticColour.breaking),
         if (story.isDeveloping && !story.isBreaking)
-          _Badge(label: strings.developing, colour: AppTheme.developing),
+          _Badge(label: strings.developing, colour: SemanticColour.developing),
       ],
     );
   }
@@ -541,7 +550,7 @@ class _BriefCard extends StatelessWidget {
                                 context,
                                 icon: Icons.warning_amber_rounded,
                                 label: strings.inConflict,
-                                colour: AppTheme.disputed,
+                                colour: SemanticColour.disputed,
                                 filled: true,
                               ),
                           ],
@@ -609,11 +618,12 @@ class _StandardCard extends StatelessWidget {
                           children: [
                             if (story.isBreaking)
                               _Badge(
-                                  label: strings.breaking, colour: AppTheme.breaking),
+                                  label: strings.breaking,
+                                  colour: SemanticColour.breaking),
                             if (story.isDeveloping && !story.isBreaking)
                               _Badge(
                                   label: strings.developing,
-                                  colour: AppTheme.developing),
+                                  colour: SemanticColour.developing),
                             _Folio(story: story, strings: strings),
                           ],
                         ),
@@ -663,7 +673,7 @@ class _StandardCard extends StatelessWidget {
                           context,
                           icon: Icons.warning_amber_rounded,
                           label: strings.inConflict,
-                          colour: AppTheme.disputed,
+                          colour: SemanticColour.disputed,
                           filled: true,
                         ),
                       if (story.isCorrected)
@@ -671,7 +681,7 @@ class _StandardCard extends StatelessWidget {
                           context,
                           icon: Icons.edit_outlined,
                           label: strings.corrections,
-                          colour: AppTheme.developing,
+                          colour: SemanticColour.developing,
                         ),
                     ],
                   ),

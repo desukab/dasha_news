@@ -512,14 +512,14 @@ class _DevelopingRail extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Row(
               children: [
-                const Icon(Icons.autorenew_rounded,
-                    size: 15, color: AppTheme.developing),
+                Icon(Icons.autorenew_rounded,
+                    size: 15, color: SemanticColour.developing.inkOf(context)),
                 const SizedBox(width: 6),
                 Text(
                   strings.developing,
                   style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w800,
-                        color: AppTheme.developing,
+                        color: SemanticColour.developing.inkOf(context),
                       ),
                 ),
               ],
@@ -592,10 +592,12 @@ class _RailCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (story.isBreaking)
-                      _Dot(colour: AppTheme.breaking, label: strings.breaking)
+                      _Dot(
+                          colour: SemanticColour.breaking,
+                          label: strings.breaking)
                     else
                       _Dot(
-                          colour: AppTheme.developing,
+                          colour: SemanticColour.developing,
                           label: strings.developing),
                   ],
                 ),
@@ -629,7 +631,7 @@ class _RailCard extends StatelessWidget {
 class _Dot extends StatelessWidget {
   const _Dot({required this.colour, required this.label});
 
-  final Color colour;
+  final SemanticColour colour;
   final String label;
 
   @override
@@ -637,7 +639,7 @@ class _Dot extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: colour,
+        color: colour.badge,
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(
