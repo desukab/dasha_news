@@ -16,7 +16,11 @@ class DashaApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     return MaterialApp(
-      title: 'Dasha News',
+      // The task switcher carries the paper's name in the language the reader
+      // is reading in — the launcher icon beside it already does.
+      title: app.strings.appName,
+      onGenerateTitle: (context) =>
+          context.read<AppState>().strings.appName,
       debugShowCheckedModeBanner: false,
       themeMode: app.themeModeValue,
       theme: AppTheme.light(),

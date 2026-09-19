@@ -5,7 +5,7 @@
          here or the app ships with no network permission at all. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="Dasha News"
+        android:label="@string/app_name"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

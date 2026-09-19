@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The launcher and task-switcher name. A Telugu-locale device uses the
+         paper's own nameplate from values-te/ instead. -->
+    <string name="app_name">Dasha News</string>
+</resources>

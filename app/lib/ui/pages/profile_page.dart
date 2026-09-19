@@ -266,7 +266,7 @@ class _ProfilePageState extends TabPageState<ProfilePage> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFB3261E), Color(0xFF7F1212)],
+          colors: [mastheadRed, mastheadRedDark],
         ),
         borderRadius: BorderRadius.circular(16),
       ),
