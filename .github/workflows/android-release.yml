@@ -91,7 +91,7 @@ jobs:
       # Repository secrets required for a properly signed Play Store AAB:
       #   KEYSTORE_BASE64    base64 of the upload .jks/.keystore file
       #   KEYSTORE_PASSWORD  the keystore's password
-      # KEY_ALIAS          the alias of the upload key inside it
+      #   KEY_ALIAS          the alias of the upload key inside it
       #   KEY_PASSWORD       that key's password
       - name: Materialise the release keystore
         env:
@@ -152,4 +152,4 @@ jobs:
           echo "::notice::Uploaded two artifacts for ${{ matrix.app }}"
           echo "APK artifact: ${{ matrix.artifact-name }}-release-apk"
           echo "AAB artifact: ${{ matrix.artifact-name }}-release-aab"
-          echo "Download them from the run page: Settings -> Actions -> this run -> Artifacts."
+          echo "Download them from the run page: the repository's Actions tab -> this run -> Artifacts."
