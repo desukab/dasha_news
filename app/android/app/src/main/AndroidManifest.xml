@@ -1,6 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The reader app is useless offline at first launch: it has to reach the
+         newsroom. The debug and profile manifests declare this, but a merged
+         release manifest does not inherit it, so the release build needs it
+         here or the app ships with no network permission at all. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="dasha_news"
+        android:label="Dasha News"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

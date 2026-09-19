@@ -1,0 +1,151 @@
+# Android release pipeline.
+#
+# The Azure VM that hosts the newsroom has a 29 GB OS disk, which a Flutter/Gradle
+# release build fills. Building here instead keeps that disk clear and gives every
+# push a downloadable artifact: push -> this workflow -> tests -> APK + AAB.
+#
+# Both Flutter projects are built by the same definition via the matrix, so a new
+# project only needs a pubspec and an entry in `include`.
+#
+# The Flutter version comes from .fvmrc at the repository root, so a local build
+# and a CI build are the same toolchain rather than "whatever the runner has".
+
+name: android-release
+
+on:
+  # The intended trigger: build a release on demand from the Actions tab.
+  workflow_dispatch:
+  # A published tag is a release candidate, so build it too.
+  push:
+    tags:
+      - 'v*'
+
+# Two runs for the same app should both finish rather than cancel each other,
+# because the artifact from each is what gets downloaded and inspected.
+concurrency:
+  group: android-release-${{ matrix.app }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.app }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ matrix.app }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: app
+            artifact-name: dasha-news
+          - app: editor_app
+            artifact-name: dasha-editor
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The repository pins its Flutter version in .fvmrc; this reads it, so the
+      # workflow cannot drift onto a version the apps were not written against.
+      - name: Set up Flutter (${{ matrix.app }})
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: .fvmrc
+          channel: stable
+          cache: true
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          log-accepted-android-sdk-licenses: false
+
+      - name: Report the toolchain
+        run: |
+          flutter --version
+          dart --version
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Static analysis
+        run: flutter analyze
+
+      - name: Tests
+        run: flutter test
+
+      # Release signing. No keystore lives in this repository: if the four
+      # secrets below are set, they are written into android/key.properties and
+      # android/app/upload-keystore.jks (both gitignored) and the release build
+      # is signed with them. If they are not set, the Gradle file falls back to
+      # the debug keystore and the artifact is still installable -- enough to
+      # test with, not enough for Google Play.
+      #
+      # Repository secrets required for a properly signed Play Store AAB:
+      #   KEYSTORE_BASE64    base64 of the upload .jks/.keystore file
+      #   KEYSTORE_PASSWORD  the keystore's password
+      # KEY_ALIAS          the alias of the upload key inside it
+      #   KEY_PASSWORD       that key's password
+      - name: Materialise the release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+            {
+              echo "storePassword=$KEYSTORE_PASSWORD"
+              echo "keyPassword=$KEY_PASSWORD"
+              echo "keyAlias=$KEY_ALIAS"
+              echo "storeFile=upload-keystore.jks"
+            } > android/key.properties
+            echo "::notice::Signing the release build with the repository's keystore secrets."
+          else
+            echo "::warning::No keystore secrets are configured, so the release build is signed with the debug keystore. Fine for testing; not acceptable for Google Play."
+          fi
+
+      - name: Build the release APK
+        run: flutter build apk --release
+
+      - name: Build the release AAB
+        run: flutter build appbundle --release
+
+      # Print exactly what was produced, with sizes, before it is uploaded, so
+      # a failed or empty packaging step is visible in the log and not only in
+      # the artifact listing.
+      - name: Report the built artifacts
+        run: |
+          echo "::notice::Built ${{ matrix.app }}: $(basename ${{ matrix.artifact-name }})"
+          echo "Artifact path and size:"
+          find build/app/outputs -type f \( -name '*.apk' -o -name '*.aab' \) -print -exec ls -lh {} \;
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}-release-apk
+          path: ${{ matrix.app }}/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload the AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}-release-aab
+          path: ${{ matrix.app }}/build/app/outputs/flutter-bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Report the uploaded artifacts
+        run: |
+          echo "::notice::Uploaded two artifacts for ${{ matrix.app }}"
+          echo "APK artifact: ${{ matrix.artifact-name }}-release-apk"
+          echo "AAB artifact: ${{ matrix.artifact-name }}-release-aab"
+          echo "Download them from the run page: Settings -> Actions -> this run -> Artifacts."

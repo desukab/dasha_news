@@ -15,18 +15,20 @@ backend/media/
 backend/logs/
 
 # ---- Flutter / Dart ----
-app/.dart_tool/
-app/.packages
-app/.pub-cache/
-app/.pub/
-app/build/
-app/.flutter-plugins
-app/.flutter-plugins-dependencies
-app/android/.gradle/
-app/android/local.properties
-app/android/key.properties
-app/ios/Pods/
-app/.metadata
+# Both Flutter projects generate the same set of files; the patterns are
+# generic so the editor app is covered too.
+**/.dart_tool/
+**/.packages
+**/.pub-cache/
+**/.pub/
+**/build/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/android/.gradle/
+**/android/local.properties
+**/android/key.properties
+**/ios/Pods/
+**/.metadata
 
 # ---- Secrets ----
 .env
