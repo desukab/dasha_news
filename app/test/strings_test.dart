@@ -22,6 +22,10 @@ void main() {
         'notFound': strings.notFound,
         'retry': strings.retry,
         'appName': strings.appName,
+        // The audio controller reports these directly to the reader; a missing
+        // one falls back to nothing at all on that language's audio tab.
+        'audioUnavailable': strings.audioUnavailable,
+        'audioFailed': strings.audioFailed,
       };
       for (final entry in values.entries) {
         test('$code.${entry.key} is present and non-empty', () {
@@ -40,6 +44,15 @@ void main() {
     test('the 404 page is not English-only', () {
       expect(const AppStrings('te').notFound, isNot('Page not found'));
       expect(const AppStrings('en').notFound, 'Page not found');
+    });
+
+    test('the audio failures are not English-only', () {
+      expect(const AppStrings('te').audioUnavailable,
+          isNot('No audio edition is available for this story yet.'));
+      expect(
+        const AppStrings('te').audioFailed,
+        isNot('Audio could not be played. Please try again shortly.'),
+      );
     });
   });
 }

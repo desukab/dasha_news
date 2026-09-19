@@ -89,6 +89,8 @@ class AppStrings {
       cancel: 'రద్దు చేయి',
       save: 'సేవ్ చేయి',
       serverInvalid: 'ఇది చెల్లుబాటు అయ్యే చిరునామా కాదు — http:// లేదా https:// తో మొదలవ్వాలి',
+      audioUnavailable: 'ఈ వార్తకు ఇంకా ఆడియో ఎడిషన్ లేదు.',
+      audioFailed: 'ఆడియో ప్లే కాలేదు. దయచేసి కొద్దిసేపట్లో మళ్లీ ప్రయత్నించండి.',
       notFound: 'పేజీ దొరకలేదు',
       retry: 'మళ్లీ ప్రయత్నించండి',
       loadMore: 'మరిన్ని లోడ్ చేయండి',
@@ -183,6 +185,8 @@ class AppStrings {
       cancel: 'Raddu cheyyi',
       save: 'Save chayyi',
       serverInvalid: 'Idi chellubata ayye chirunama kadu — http:// leda https:// tho modalavvali',
+      audioUnavailable: 'Ee varthaku inka audio edition ledu.',
+      audioFailed: 'Audio play kaledu. Dayachesi koddiseppulo malli prayatnichandi.',
       notFound: 'Page dorakaledu',
       retry: 'Malli prayatninchandi',
       loadMore: 'Marinni load cheyandi',
@@ -278,6 +282,8 @@ class AppStrings {
       cancel: 'Cancel',
       save: 'Save',
       serverInvalid: 'That is not a valid address — it must start with http:// or https://',
+      audioUnavailable: 'No audio edition is available for this story yet.',
+      audioFailed: 'Audio could not be played. Please try again shortly.',
       notFound: 'Page not found',
       retry: 'Try again',
       loadMore: 'Load more',
@@ -375,6 +381,8 @@ class AppStrings {
   String get cancel => _lang.cancel;
   String get save => _lang.save;
   String get serverInvalid => _lang.serverInvalid;
+  String get audioUnavailable => _lang.audioUnavailable;
+  String get audioFailed => _lang.audioFailed;
   String get notFound => _lang.notFound;
   String get retry => _lang.retry;
   String get loadMore => _lang.loadMore;
@@ -483,6 +491,8 @@ class _Lang {
     required this.cancel,
     required this.save,
     required this.serverInvalid,
+    required this.audioUnavailable,
+    required this.audioFailed,
     required this.notFound,
     required this.retry,
     required this.loadMore,
@@ -574,6 +584,8 @@ class _Lang {
   final String cancel;
   final String save;
   final String serverInvalid;
+  final String audioUnavailable;
+  final String audioFailed;
   final String notFound;
   final String retry;
   final String loadMore;

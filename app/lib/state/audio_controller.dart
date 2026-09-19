@@ -65,15 +65,19 @@ class AudioController extends ChangeNotifier {
 
     final url = _resolvedUrl(story);
     if (url == null) {
-      _error = 'No audio edition is available for this story yet.';
+      _error = _appState.strings.audioUnavailable;
       notifyListeners();
       return;
     }
     try {
       await _player.setAudioSource(AudioSource.uri(Uri.parse(url)));
       await _player.play();
-    } on Exception catch (exc) {
-      _error = 'Audio could not be played: ${exc.toString()}';
+    } on Exception catch (_) {
+      // The reader gets the sentence in their own language, not the
+      // transport's: a player exception names codecs and status codes that
+      // mean nothing on a phone, and every other failure in the app is
+      // reported the same way.
+      _error = _appState.strings.audioFailed;
       notifyListeners();
     }
   }
@@ -90,8 +94,8 @@ class AudioController extends ChangeNotifier {
     if (_story == null) return;
     try {
       await _player.play();
-    } on Exception catch (exc) {
-      _error = exc.toString();
+    } on Exception catch (_) {
+      _error = _appState.strings.audioFailed;
       notifyListeners();
     }
   }
