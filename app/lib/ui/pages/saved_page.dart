@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
 import '../../core/app_strings.dart';
+import '../../core/error_message.dart';
 import '../../models/story.dart';
 import '../../state/app_state.dart';
 import '../../state/history_recorder.dart';
@@ -27,6 +28,7 @@ class _SavedPageState extends TabPageState<SavedPage> {
   List<Story> _items = [];
   bool _loading = true;
   bool _offline = false;
+  String? _error;
   String? _lastLocale;
 
   @override
@@ -41,6 +43,7 @@ class _SavedPageState extends TabPageState<SavedPage> {
     setState(() {
       _loading = true;
       _offline = false;
+      _error = null;
     });
     try {
       final items = await app.api.bookmarks(deviceId: app.storage.deviceId);
@@ -51,8 +54,14 @@ class _SavedPageState extends TabPageState<SavedPage> {
       });
     } on ApiException catch (exc) {
       if (!mounted) return;
+      // Only an unreachable newsroom can honestly say "we cannot tell what is
+      // saved". Any other failure is reported as a failure, because drawing
+      // the empty-bookmarks state here would tell the reader their saved
+      // stories are gone when they are merely not fetched.
+      final unreachable = exc.isOffline || exc.kind == ApiFailure.network;
       setState(() {
-        _offline = exc.isOffline;
+        _offline = unreachable;
+        _error = unreachable ? null : errorMessage(app.strings, exc);
         _loading = false;
       });
     }
@@ -100,6 +109,12 @@ class _SavedPageState extends TabPageState<SavedPage> {
   Widget _body(BuildContext context, AppStrings strings) {
     if (_loading) {
       return const LoadingView();
+    }
+    if (_error != null) {
+      return ErrorState(
+        message: _error!,
+        onRetry: _load,
+      );
     }
     if (_items.isEmpty) {
       return EmptyState(
