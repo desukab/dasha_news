@@ -20,16 +20,17 @@ on:
     tags:
       - 'v*'
 
-# Two runs for the same app should both finish rather than cancel each other,
-# because the artifact from each is what gets downloaded and inspected.
-concurrency:
-  group: android-release-${{ matrix.app }}
-  cancel-in-progress: false
-
 jobs:
   build:
     name: Build ${{ matrix.app }}
     runs-on: ubuntu-latest
+    # Two runs for the same app should both finish rather than cancel each other,
+    # because the artifact from each is what gets downloaded and inspected. This
+    # has to live on the job, not the workflow: the matrix context is only in
+    # scope inside a job, and a workflow-level concurrency block cannot read it.
+    concurrency:
+      group: android-release-${{ matrix.app }}
+      cancel-in-progress: false
     defaults:
       run:
         working-directory: ${{ matrix.app }}
