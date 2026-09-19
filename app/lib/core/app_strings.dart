@@ -81,9 +81,13 @@ class AppStrings {
       bookmarksEmpty: 'సేవ్ చేసిన వార్తలు లేవు',
       bookmarksEmptyHint: 'చదువుతున్నప్పుడు సేవ్ చేయండి',
       offline: 'ఆఫ్‌లైన్',
+      online: 'ఆన్‌లైన్',
       offlineHint: 'చివరిగా దాచిన వార్తలు చూపిస్తున్నాము',
       errorGeneric: 'ఏదో తప్పు జరిగింది',
       errorOffline: 'వార్తలను చేరుకోలేకపోయాము',
+      ok: 'సరే',
+      cancel: 'రద్దు చేయి',
+      notFound: 'పేజీ దొరకలేదు',
       retry: 'మళ్లీ ప్రయత్నించండి',
       loadMore: 'మరిన్ని లోడ్ చేయండి',
       loading: 'లోడ్ అవుతోంది',
@@ -169,9 +173,13 @@ class AppStrings {
       bookmarksEmpty: 'Save chesina vaarthalu levu',
       bookmarksEmptyHint: 'Chaduvutunappudu save cheyandi',
       offline: 'Offline',
+      online: 'Online',
       offlineHint: 'Chivarigi dachina vaarthalu chupistunnamu',
       errorGeneric: 'Edo tappu jarigindi',
       errorOffline: 'Vaarthalanu cherukole poyamu',
+      ok: 'Sare',
+      cancel: 'Raddu cheyyi',
+      notFound: 'Page dorakaledu',
       retry: 'Malli prayatninchandi',
       loadMore: 'Marinni load cheyandi',
       loading: 'Load avutondi',
@@ -258,9 +266,13 @@ class AppStrings {
       bookmarksEmpty: 'Nothing saved yet',
       bookmarksEmptyHint: 'Save a story while you read it',
       offline: 'Offline',
+      online: 'Online',
       offlineHint: 'Showing the last stories we could keep',
       errorGeneric: 'Something went wrong',
       errorOffline: 'Could not reach the newsroom',
+      ok: 'OK',
+      cancel: 'Cancel',
+      notFound: 'Page not found',
       retry: 'Try again',
       loadMore: 'Load more',
       loading: 'Loading',
@@ -349,9 +361,13 @@ class AppStrings {
   String get bookmarksEmpty => _lang.bookmarksEmpty;
   String get bookmarksEmptyHint => _lang.bookmarksEmptyHint;
   String get offline => _lang.offline;
+  String get online => _lang.online;
   String get offlineHint => _lang.offlineHint;
   String get errorGeneric => _lang.errorGeneric;
   String get errorOffline => _lang.errorOffline;
+  String get ok => _lang.ok;
+  String get cancel => _lang.cancel;
+  String get notFound => _lang.notFound;
   String get retry => _lang.retry;
   String get loadMore => _lang.loadMore;
   String get loading => _lang.loading;
@@ -451,9 +467,13 @@ class _Lang {
     required this.bookmarksEmpty,
     required this.bookmarksEmptyHint,
     required this.offline,
+    required this.online,
     required this.offlineHint,
     required this.errorGeneric,
     required this.errorOffline,
+    required this.ok,
+    required this.cancel,
+    required this.notFound,
     required this.retry,
     required this.loadMore,
     required this.loading,
@@ -536,9 +556,13 @@ class _Lang {
   final String bookmarksEmpty;
   final String bookmarksEmptyHint;
   final String offline;
+  final String online;
   final String offlineHint;
   final String errorGeneric;
   final String errorOffline;
+  final String ok;
+  final String cancel;
+  final String notFound;
   final String retry;
   final String loadMore;
   final String loading;

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../core/app_strings.dart';
 import '../models/story.dart';
+import '../state/app_state.dart';
 import 'pages/audio_page.dart';
 import 'pages/breaking_page.dart';
 import 'pages/explore_page.dart';
@@ -14,6 +16,7 @@ import 'pages/shorts_page.dart';
 import 'pages/splash_page.dart';
 import 'pages/story_detail_page.dart';
 import 'pages/submit_tip_page.dart';
+import 'widgets/masthead.dart';
 
 /// Named routes. Typed arguments are used rather than untyped `arguments`,
 /// so a refactor that renames a field breaks at compile time, not at runtime.
@@ -109,9 +112,16 @@ class DashaRouter {
 
   static Route<dynamic> _errorRoute(RouteSettings settings) {
     return MaterialPageRoute<void>(
+      // An unknown route is still the paper: it says so in the reader's
+      // language, and the bar carries the mark rather than no title at all.
       builder: (context) => Scaffold(
-        appBar: AppBar(),
-        body: const Center(child: Text('Page not found')),
+        appBar: AppBar(title: const DashaMonogram(extent: 30)),
+        body: Center(
+          child: Text(AppStrings.of(
+            context,
+            context.read<AppState>().locale,
+          ).notFound),
+        ),
       ),
       settings: settings,
     );

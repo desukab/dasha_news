@@ -99,7 +99,7 @@ class _ProfilePageState extends TabPageState<ProfilePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: Text(app.strings.ok),
           ),
         ],
       ),
@@ -293,7 +293,7 @@ class _ProfilePageState extends TabPageState<ProfilePage> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  app.online ? 'online' : app.strings.offline,
+                  app.online ? app.strings.online : app.strings.offline,
                   style: theme.textTheme.labelSmall?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
