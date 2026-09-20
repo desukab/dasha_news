@@ -44,6 +44,12 @@ class AppStrings {
       stateEdition: 'రాష్ట్రం',
       latest: 'తాజా',
       developing: 'కొనసాగుతున్న',
+      regionNow: 'ఇప్పుడు',
+      regionNear: 'మీ చుట్టూ',
+      regionTelangana: 'తెలంగాణ',
+      regionIndiaWorld: 'భారతం-ప్రపంచం',
+      nearNeedsDistrict: 'మీ ప్రాంతాన్ని ఎంచుకోండి',
+      nearNeedsDistrictHint: 'మీ జిల్లాలో జరుగుతున్న వార్తలను చూడటానికి',
       reading: 'చదువుతున్నారు',
       readAtSource: 'మూలంలో చదవండి',
       saveStory: 'సేవ్ చేయండి',
@@ -140,6 +146,12 @@ class AppStrings {
       stateEdition: 'Rajyam',
       latest: 'Taja',
       developing: 'Konasagutunna',
+      regionNow: 'Ippudu',
+      regionNear: 'Mee chuttu',
+      regionTelangana: 'Telangana',
+      regionIndiaWorld: 'Bharatam-Prapancham',
+      nearNeedsDistrict: 'Mee pranthanni eechukoondi',
+      nearNeedsDistrictHint: 'Mee jillalo jarigutunna varthalanu choodataniki',
       reading: 'Chaduvutunnaru',
       readAtSource: 'Moolamlo chadavandi',
       saveStory: 'Save cheyandi',
@@ -236,6 +248,12 @@ class AppStrings {
       stateEdition: 'State',
       latest: 'Latest',
       developing: 'Developing',
+      regionNow: 'Now',
+      regionNear: 'Near You',
+      regionTelangana: 'Telangana',
+      regionIndiaWorld: 'India & World',
+      nearNeedsDistrict: 'Choose your area',
+      nearNeedsDistrictHint: 'To see what is happening in your district',
       reading: 'reading',
       readAtSource: 'Read at source',
       saveStory: 'Save',
@@ -337,6 +355,12 @@ class AppStrings {
   String get stateEdition => _lang.stateEdition;
   String get latest => _lang.latest;
   String get developing => _lang.developing;
+  String get regionNow => _lang.regionNow;
+  String get regionNear => _lang.regionNear;
+  String get regionTelangana => _lang.regionTelangana;
+  String get regionIndiaWorld => _lang.regionIndiaWorld;
+  String get nearNeedsDistrict => _lang.nearNeedsDistrict;
+  String get nearNeedsDistrictHint => _lang.nearNeedsDistrictHint;
   String get reading => _lang.reading;
   String get readAtSource => _lang.readAtSource;
   String get saveStory => _lang.saveStory;
@@ -447,6 +471,12 @@ class _Lang {
     required this.stateEdition,
     required this.latest,
     required this.developing,
+    required this.regionNow,
+    required this.regionNear,
+    required this.regionTelangana,
+    required this.regionIndiaWorld,
+    required this.nearNeedsDistrict,
+    required this.nearNeedsDistrictHint,
     required this.reading,
     required this.readAtSource,
     required this.saveStory,
@@ -540,6 +570,12 @@ class _Lang {
   final String stateEdition;
   final String latest;
   final String developing;
+  final String regionNow;
+  final String regionNear;
+  final String regionTelangana;
+  final String regionIndiaWorld;
+  final String nearNeedsDistrict;
+  final String nearNeedsDistrictHint;
   final String reading;
   final String readAtSource;
   final String saveStory;

@@ -46,8 +46,8 @@ void main() {
           String body;
           if (request.url.path.contains('developing')) {
             body = _feedJson(3, developing: true);
-          } else if (request.url.path.contains('feed')) {
-            body = _feedJson(6);
+          } else if (request.url.path.contains('front')) {
+            body = _frontJson();
           } else {
             body = '{"status":"ok"}';
           }
@@ -100,31 +100,7 @@ class _NoDiskStorage extends Storage {
 }
 
 String _feedJson(int count, {bool developing = false}) {
-  final items = List.generate(count, (i) {
-    return {
-      'id': 900 + i,
-      'cluster_id': 'cluster-$i',
-      'slug': 'story-$i',
-      'section': 'telangana',
-      'section_label_te': 'తెలంగాణ',
-      'section_label_en': 'Telangana',
-      'status': 'published',
-      'status_label_te': 'ప్రచురితం',
-      'importance': 0.8 - i * 0.05,
-      'evidence_score': 0.7,
-      'num_sources': 3,
-      'is_breaking': false,
-      'is_developing': developing,
-      'headline_te': 'తెలంగాణ తాజా వార్త ${i + 1}',
-      'headline_en': 'Telangana news ${i + 1}',
-      'lead_te': 'ఇది మొదటి వాక్యం. రెండవ వాక్యం ఇది.',
-      'district': 'Hyderabad',
-      'state': 'Telangana',
-      // Old enough to fall past the relative buckets and into DateFormat.
-      'published_at': '2025-03-04T14:30:00',
-      'updated_at': '2025-03-04T14:31:00',
-    };
-  });
+  final items = List.generate(count, (i) => _card(i, developing: developing));
   return json.encode({
     'items': items,
     'total': count,
@@ -132,4 +108,54 @@ String _feedJson(int count, {bool developing = false}) {
     'page_size': 20,
     'has_more': false,
   });
+}
+
+/// The four regions the newsroom sends, with a story in each so every header
+/// the page draws is reached.
+String _frontJson() {
+  Map<String, dynamic> region(List<Map<String, dynamic>> items,
+      {String? asked}) {
+    return {
+      'items': items,
+      'total': items.length,
+      'asked': asked,
+      'has_more': false,
+    };
+  }
+
+  return json.encode({
+    'now': region([_card(0)]),
+    'near': region([_card(1)], asked: 'Hyderabad'),
+    'telangana': region([_card(2)]),
+    'india_world': region([_card(3, section: 'national')]),
+    'language': 'te',
+    'district': 'Hyderabad',
+  });
+}
+
+Map<String, dynamic> _card(int i,
+    {bool developing = false, String section = 'telangana'}) {
+  return {
+    'id': 900 + i,
+    'cluster_id': 'cluster-$i',
+    'slug': 'story-$i',
+    'section': section,
+    'section_label_te': 'తెలంగాణ',
+    'section_label_en': 'Telangana',
+    'status': 'published',
+    'status_label_te': 'ప్రచురితం',
+    'importance': 0.8 - i * 0.05,
+    'evidence_score': 0.7,
+    'num_sources': 3,
+    'is_breaking': false,
+    'is_developing': developing,
+    'headline_te': 'తెలంగాణ తాజా వార్త ${i + 1}',
+    'headline_en': 'Telangana news ${i + 1}',
+    'lead_te': 'ఇది మొదటి వాక్యం. రెండవ వాక్యం ఇది.',
+    'district': 'Hyderabad',
+    'state': 'Telangana',
+    // Old enough to fall past the relative buckets and into DateFormat.
+    'published_at': '2025-03-04T14:30:00',
+    'updated_at': '2025-03-04T14:31:00',
+  };
 }

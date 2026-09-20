@@ -196,6 +196,82 @@ def test_feed_language_filter_paginates_the_served_set(session, client):
     assert third["has_more"] is False
 
 
+# ---------------------------------------------------------------------------
+# The front page: one round trip, four regions
+# ---------------------------------------------------------------------------
+
+def test_front_page_has_the_four_regions(session, client):
+    _story(session, section="telangana", headline_te="తెలంగాణ కథ")
+    _story(session, section="national", headline_te="జాతీయ కథ")
+    body = client.get("/v1/front?language=te").json()
+    # Every region is always present, even when it has nothing to say; an
+    # absent key would make the app's empty-state unreachable.
+    for key in ("now", "near", "telangana", "india_world"):
+        assert key in body
+        assert set(body[key]) >= {"items", "total", "asked", "has_more"}
+    # The room is split by the taxonomy's own local flag, not by a hardcoded
+    # list of slugs, so the two desks are disjoint and together cover it.
+    tg = {s["id"] for s in body["telangana"]["items"]}
+    iw = {s["id"] for s in body["india_world"]["items"]}
+    assert tg and iw
+    assert not (tg & iw)
+    assert body["language"] == "te"
+
+
+def test_front_page_now_is_the_freshest_first(session, client):
+    older = _story(session, section="telangana", headline_te="పాత కథ",
+                   published_at=datetime(2026, 6, 1))
+    newer = _story(session, section="telangana", headline_te="కొత్త కథ",
+                   published_at=datetime(2026, 6, 2))
+    now = client.get("/v1/front?language=te").json()["now"]
+    assert [s["id"] for s in now["items"][:2]] == [newer.id, older.id]
+
+
+def test_front_page_near_you_needs_a_district(session, client):
+    _story(session, district="Warangal", headline_te="వరంగల్ కథ")
+    # Without a district the region is empty and says so, rather than filling
+    # the slot with the whole state under a label that promises something local.
+    without = client.get("/v1/front?language=te").json()["near"]
+    assert without["items"] == []
+    assert without["total"] == 0
+    assert without["asked"] is None
+    with_ = client.get("/v1/front?language=te&district=Warangal").json()["near"]
+    assert with_["total"] == 1
+    assert with_["asked"] == "Warangal"
+    assert with_["items"][0]["district"] == "Warangal"
+
+
+def test_front_page_near_you_matches_a_mandal_or_locality(session, client):
+    # The desk files a story at the level it knows; the reader asks by name.
+    # Any of the three local columns answering is a match.
+    mandal = _story(session, district=None, mandal="Hayatnagar",
+                    headline_te="మండల్ కథ")
+    locality = _story(session, district=None, mandal=None, locality="Kukatpally",
+                      headline_te="ప్రాంతం కథ")
+    near = client.get("/v1/front?language=te&district=Hayatnagar").json()["near"]
+    assert [s["id"] for s in near["items"]] == [mandal.id]
+    other = client.get("/v1/front?language=te&district=Kukatpally").json()["near"]
+    assert [s["id"] for s in other["items"]] == [locality.id]
+
+
+def test_front_page_withholds_a_wrong_script_story(session, client):
+    # A story that is only English does not reach the Telugu front page, but it
+    # is still in the English one -- the region's language promise is the same
+    # one the feed makes.
+    _story(session, section="telangana", headline_te="English wire copy only",
+           headline_en="English wire copy only")
+    te = client.get("/v1/front?language=te").json()
+    en = client.get("/v1/front?language=en").json()
+    assert te["telangana"]["items"] == []
+    assert te["now"]["items"] == []
+    assert any(s["headline_en"] == "English wire copy only"
+               for s in en["telangana"]["items"])
+
+
+def test_front_page_rejects_an_unknown_language(session, client):
+    assert client.get("/v1/front?language=hi").status_code == 422
+
+
 def test_breaking_feed(session, client):
     _story(session, is_breaking=True, status="breaking")
     _story(session, is_breaking=False)

@@ -98,6 +98,11 @@ class CacheNames {
   const CacheNames._();
 
   static const String feed = 'feed';
+
+  /// The front page: four regions in one answer, cached as one blob so a
+  /// cold start restores all of them together rather than three regions and a
+  /// gap.
+  static const String front = 'front';
   static const String breaking = 'breaking';
   static const String developing = 'developing';
   static const String sections = 'sections';

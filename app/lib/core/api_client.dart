@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../models/front_page.dart';
 import '../models/page.dart';
 import '../models/story.dart';
 import 'config.dart';
@@ -124,6 +125,26 @@ class ApiClient {
   }
 
   // -- public endpoints -----------------------------------------------------
+
+  /// The whole front page in one round trip: Now, Near You, Telangana and
+  /// India & World.
+  ///
+  /// One call rather than four, because a phone waking from cold start should
+  /// learn what is happening around it from a single request, and because the
+  /// four regions are only coherent together -- arriving in pieces would let a
+  /// Near You slot render before the reader learns no district is set.
+  Future<FrontPage> front({
+    required String language,
+    String? district,
+    int pageSize = 6,
+  }) async {
+    final json = await _getJson('/v1/front', {
+      'language': language,
+      if (district != null && district.isNotEmpty) 'district': district,
+      'page_size': pageSize,
+    });
+    return FrontPage.fromJson(json);
+  }
 
   Future<StoryPage> feed({
     required String language,

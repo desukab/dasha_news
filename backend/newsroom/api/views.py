@@ -19,6 +19,7 @@ from newsroom.api.schemas import (
     UpdateView,
 )
 from newsroom.config import get_settings
+from newsroom.db.models import Story
 from newsroom.domain.evidence import EvidenceLevel, story_status_label_te
 from newsroom.domain.sections import BY_SLUG
 from newsroom.nlp.language import validate_language
@@ -241,3 +242,104 @@ def paginate(items: List[Any], total: int, page: int, page_size: int) -> Dict[st
         "page_size": page_size,
         "has_more": page * page_size < total,
     }
+
+
+# ---------------------------------------------------------------------------
+# The front page's regions
+# ---------------------------------------------------------------------------
+
+# The four questions the front page answers, in the order the reader scans it.
+# Splitting the room by the section taxonomy's own flags -- rather than by a
+# hardcoded list of slugs -- is what keeps the split honest when the newsroom
+# adds a desk: a section marked telangana_local is local wherever it appears,
+# and everything else is the national and world desk.
+_TELENGANA_LOCAL = tuple(
+    slug for slug, section in BY_SLUG.items() if section.telangana_local)
+
+
+def _region(session: Session, query, *, language: str, asked: Optional[str],
+            page_size: int) -> Dict[str, Any]:
+    """Build one region: candidates -> language pass -> one page of cards.
+
+    A region is allowed to come back empty, and an empty region is still
+    returned (with `asked`) so the reader can see which question went
+    unanswered rather than being handed a region full of the wrong stories.
+    """
+    from newsroom.api.schemas import RegionPage
+
+    candidates = session.execute(query.limit(_FRONT_CANDIDATES)).scalars().all()
+    rendered = {story.id: story_language(story) for story in candidates}
+    served = [story for story in candidates
+              if serves_language(rendered[story.id], language)]
+    rows = served[:page_size]
+    items = [to_story_card(session, story, language=language, rendered=rendered[story.id])
+             .model_dump() for story in rows]
+    return RegionPage(
+        items=items,
+        total=len(served),
+        asked=asked,
+        has_more=len(served) > page_size,
+    ).model_dump()
+
+
+def to_front_page(session: Session, *, language: str = "te",
+                  district: Optional[str] = None,
+                  page_size: int = 6) -> Dict[str, Any]:
+    """The whole front page: Now, Near You, Telangana, India & World.
+
+    One response rather than four calls, because a phone on a cold start should
+    make one request to learn what is happening around it, and because the four
+    regions are only coherent together -- a front page that arrives in pieces
+    can show a Near You slot before the reader learns there is no district set.
+
+    `district` is the reader's own choice and is the one thing that can make a
+    region mean something different from one reader to the next. When it is
+    unset the Near You region comes back empty and carries that fact, so the
+    app asks the reader for a district instead of quietly showing the whole
+    state under a local label.
+    """
+    from newsroom.api.schemas import FrontPage
+
+    published = Story.status.in_(("published", "auto_published",
+                                  "developing", "breaking", "corrected"))
+
+    now_q = select(Story).where(published).order_by(
+        Story.is_breaking.desc(), Story.published_at.desc())
+
+    near_q = None
+    if district:
+        near_q = select(Story).where(
+            published,
+            (Story.district == district) | (Story.mandal == district) |
+            (Story.locality == district),
+        ).order_by(Story.is_breaking.desc(), Story.published_at.desc())
+
+    telangana_q = select(Story).where(
+        published, Story.section.in_(_TELENGANA_LOCAL),
+    ).order_by(Story.is_breaking.desc(), Story.importance.desc(),
+               Story.published_at.desc())
+
+    india_q = select(Story).where(
+        published, ~Story.section.in_(_TELENGANA_LOCAL),
+    ).order_by(Story.is_breaking.desc(), Story.importance.desc(),
+               Story.published_at.desc())
+
+    return FrontPage(
+        now=_region(session, now_q, language=language, asked="now",
+                    page_size=page_size),
+        near=_region(session, near_q, language=language, asked=district,
+                     page_size=page_size) if near_q is not None else
+        {"items": [], "total": 0, "asked": None, "has_more": False},
+        telangana=_region(session, telangana_q, language=language,
+                          asked="telangana", page_size=page_size),
+        india_world=_region(session, india_q, language=language,
+                            asked="india-world", page_size=page_size),
+        language=language,
+        district=district,
+    ).model_dump()
+
+
+# The widest window a front-page region will read. The published room is in the
+# hundreds, so this is the whole room in practice; it is bounded only so a room
+# that grew without bound could not turn a front page into a table scan.
+_FRONT_CANDIDATES = 300

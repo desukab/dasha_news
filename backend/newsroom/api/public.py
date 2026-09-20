@@ -9,11 +9,19 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from newsroom.api.schemas import DeviceIn, DeviceOut, Page, SubmissionIn, SubmissionOut
+from newsroom.api.schemas import (
+    DeviceIn,
+    DeviceOut,
+    FrontPage,
+    Page,
+    SubmissionIn,
+    SubmissionOut,
+)
 from newsroom.api.views import (
     paginate,
     serves_language,
     story_language,
+    to_front_page,
     to_story_card,
     to_story_detail,
 )
@@ -33,6 +41,26 @@ PUBLISHED = ("published", "auto_published", "developing", "breaking", "corrected
 
 def _published_query():
     return select(Story).where(Story.status.in_(PUBLISHED))
+
+
+@router.get("/front", response_model=FrontPage, dependencies=[Depends(rate_limit)])
+def front(request: Request, db: Session = Depends(get_db),
+          language: str = Query("te", pattern="^(te|ten|en)$"),
+          district: Optional[str] = Query(None, max_length=120),
+          page_size: int = Query(6, ge=1, le=12)) -> Any:
+    """The whole front page in one round trip: Now, Near You, Telangana, India & World.
+
+    The four regions answer different questions over the same published room, so
+    a story may appear in two of them -- the freshest Telangana story is also the
+    Telangana region's lead. That is the front page repeating itself, not a
+    failure to dedupe.
+
+    `district` is the reader's own choice. Without one, the Near You region is
+    empty and says so, rather than filling the slot with the whole state under a
+    label that promises something local.
+    """
+    return to_front_page(db, language=language, district=district,
+                         page_size=page_size)
 
 
 @router.get("/feed", response_model=Page, dependencies=[Depends(rate_limit)])

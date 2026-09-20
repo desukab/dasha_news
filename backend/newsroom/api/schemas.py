@@ -130,6 +130,38 @@ class Page(BaseModel):
     has_more: bool
 
 
+class RegionPage(BaseModel):
+    """One region of the front page.
+
+    `asked` is the question the region answers -- a district name for Near You,
+    the section slug otherwise. It is echoed because a region is allowed to be
+    empty, and an empty region is only meaningful if the reader can see which
+    question went unanswered.
+    """
+
+    items: List[StoryCard] = Field(default_factory=list)
+    total: int = 0
+    asked: Optional[str] = None
+    has_more: bool = False
+
+
+class FrontPage(BaseModel):
+    """The whole front page in one round trip.
+
+    Four regions, in the order the reader scans them. Each region is a separate
+    question over the same published room, so a story may appear in two -- the
+    lead of the Telangana region can also be the freshest story in Now. That is
+    the front page repeating itself, not a bug in the deduper.
+    """
+
+    now: RegionPage = Field(default_factory=RegionPage)
+    near: RegionPage = Field(default_factory=RegionPage)
+    telangana: RegionPage = Field(default_factory=RegionPage)
+    india_world: RegionPage = Field(default_factory=RegionPage)
+    language: str = "te"
+    district: Optional[str] = None
+
+
 class DeviceIn(BaseModel):
     device_id: str = Field(..., min_length=6, max_length=120)
     locale: str = "te"
