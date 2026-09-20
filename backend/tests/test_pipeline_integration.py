@@ -173,6 +173,36 @@ def test_sweep_produces_written_stories(session, live_like):
     assert session.query(Fact).count() > 0
 
 
+def test_sweep_records_rendering_latency(session, live_like):
+    """Every swept story carries a processed_at after first_seen_at.
+
+    The interval between the two is the pipeline's latency, and it was not
+    measurable before: only the arrival time was stamped, so a story that sat
+    unwritten for an hour looked identical to one rendered in a minute.
+    """
+    with _offline_feeds():
+        report = run_sweep(session, fetch_bodies=False)
+    session.commit()
+
+    stories = session.query(Story).filter(Story.processed_at.is_not(None)).all()
+    assert stories, "no story carries a processed_at"
+    for story in stories:
+        assert story.first_seen_at, f"story {story.id} has no first_seen_at"
+        assert story.processed_at >= story.first_seen_at, \
+            f"story {story.id} was processed before it was first seen"
+    assert report.median_latency_seconds is not None
+    assert report.median_latency_seconds >= 0.0
+    assert report.to_dict()["median_latency_seconds"] is not None
+
+
+def test_report_median_latency_over_an_odd_and_even_sample():
+    latencies = [1.0, 3.0, 2.0]
+    assert SweepReport(latencies=latencies).median_latency_seconds == 2.0
+    latencies = [1.0, 3.0, 2.0, 4.0]
+    assert SweepReport(latencies=latencies).median_latency_seconds == 2.5
+    assert SweepReport().median_latency_seconds is None
+
+
 def test_flood_coverage_is_clustered(session, live_like):
     """The two Telugu flood items plus the English one are one story."""
     with _offline_feeds():

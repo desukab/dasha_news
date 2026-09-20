@@ -216,6 +216,12 @@ class Story(Base):
     primary_image_attribution: Mapped[Optional[str]] = mapped_column(String(400))
 
     first_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+    # When the sweep last wrote this story's renderings. first_seen_at is when
+    # the article arrived; the gap between the two is the pipeline's latency,
+    # and it was not measurable before because only the arrival time was
+    # recorded. published_at alone cannot serve: a story is re-rendered on every
+    # sweep, so it is not the moment the newsroom finished with the story.
+    processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
     published_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
@@ -285,6 +291,8 @@ class Story(Base):
             "created_by_id": self.created_by_id,
             "published_by_id": self.published_by_id,
             "image_url": self.primary_image_url,
+            "first_seen_at": self.first_seen_at.isoformat() if self.first_seen_at else None,
+            "processed_at": self.processed_at.isoformat() if self.processed_at else None,
             "published_at": self.published_at.isoformat() if self.published_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

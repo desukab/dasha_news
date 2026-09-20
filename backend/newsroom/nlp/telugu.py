@@ -204,11 +204,28 @@ _TELUGU_TO_LATIN = {
     "త": "t", "థ": "th", "ద": "d", "ధ": "dh", "న": "n",
     "ప": "p", "ఫ": "ph", "బ": "b", "భ": "bh", "మ": "m",
     "య": "y", "ర": "r", "ల": "l", "వ": "v", "శ": "sh", "ష": "sh",
-    "స": "s", "హ": "h", "ళ": "l", "క్ష": "ksh", "ఱ": "r",
+    "స": "s", "హ": "h", "ళ": "l", "ఱ": "r",
     "ా": "a", "ి": "i", "ీ": "ee", "ు": "u", "ూ": "oo",
     "ె": "e", "ే": "e", "ై": "ai", "ొ": "o", "ో": "o", "ౌ": "au",
     "ం": "n", "ః": "h", "్": "",
 }
+
+# Consonant letters. A bare consonant letter carries an inherent "a" unless a
+# vowel sign follows or a virama (్) explicitly kills it -- that is the whole
+# of why "ప్రభుత్వం" used to come out as "prbhutvn" instead of "prabhutvam".
+_TELUGU_CONSONANTS = set("కఖగఘఙచఛజఝఞటఠడఢణతథదధనపఫబభమయరలవశషసహళఱ")
+
+_VIRAMA = "్"
+
+_ANUSVARA = "ం"
+
+# Labials: the anusvara before one of these is an "m", not an "n" -- "అంబ"
+# is "amba", and Roman Telugu is typed the same way.
+_LABIALS = set("పఫబభమయవ")
+
+# క్ష is a conjunct the per-character loop below would otherwise render as
+# "k" + virama + "sh"; it is common enough to spell as one unit.
+_KSHA = ("క", _VIRAMA, "ష")
 
 
 def transliterate_to_tenglish(text: Optional[str]) -> str:
@@ -217,16 +234,65 @@ def transliterate_to_tenglish(text: Optional[str]) -> str:
     Deliberately lossy and human-familiar rather than ISO-15919 precise: the
     target readership reads Telugu words written in Latin script the way they
     are typed in chat, e.g. "హైదరాబాద్" -> "Hyderabad"-ish.
+
+    The one rule that matters more than any other: a Telugu consonant letter
+    with no vowel sign after it is pronounced with an inherent "a". Emitting
+    the bare consonant turns every word into a consonant skeleton ("prbhutvn")
+    that no Telugu reader can sound out, which is the mechanical
+    transliteration this function exists to avoid.
     """
     if not text:
         return ""
+    # Telugu web copy is larded with zero-width joiners and combining marks
+    # that would otherwise reach the output as invisible garbage.
+    chars = [c for c in text if unicodedata.category(c)[0] != "C"]
     out: List[str] = []
-    for char in text:
+    n = len(chars)
+    i = 0
+    while i < n:
+        char = chars[i]
+
+        if tuple(chars[i : i + 3]) == _KSHA:
+            out.append("ksh")
+            i += 3
+            continue
+
         mapped = _TELUGU_TO_LATIN.get(char)
         if mapped is None:
-            out.append(char if char.isascii() or not is_telugu_char(char) else "")
+            # Unmapped Telugu (a rare sign or a numeral) has no Latin face; drop
+            # it rather than emitting the original glyph into a Roman string.
+            if is_telugu_char(char):
+                i += 1
+                continue
+            out.append(char)
+        elif char == _VIRAMA:
+            # The virama silences the inherent vowel of the consonant before
+            # it, which was already emitted bare. Contributes nothing itself.
+            pass
+        elif char == _ANUSVARA:
+            nxt = chars[i + 1] if i + 1 < n else ""
+            prev = chars[i - 1] if i > 0 else ""
+            # At the end of a word, or before a labial, readers write "m":
+            # "ప్రభుత్వం" is "prabhutvam", "అంబ" is "amba".
+            if nxt == "" or not (is_telugu_char(nxt) or nxt.isalpha()) or nxt in _LABIALS:
+                out.append("m")
+            else:
+                out.append("n")
+        elif char in _TELUGU_CONSONANTS:
+            nxt = chars[i + 1] if i + 1 < n else ""
+            # The consonant is bare when a vowel sign supplies its vowel, or
+            # when a virama after it explicitly silences the inherent "a". A
+            # consonant that *follows* a virama is the live half of a conjunct
+            # and keeps its vowel, which is why "ప్ర" is "pra" and "త్వ" is
+            # "tva" -- one vowel per cluster, on its last consonant.
+            if nxt in TELUGU_VOWEL_SIGNS or nxt == _VIRAMA:
+                out.append(mapped)
+            else:
+                out.append(mapped + "a")
         else:
             out.append(mapped)
+        i += 1
+
     result = "".join(out)
     result = re.sub(r"(.)\1{2,}", r"\1\1", result)  # collapse triplets (vowel signs)
     return _WHITESPACE_RE.sub(" ", result).strip()

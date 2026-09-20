@@ -23,6 +23,7 @@ from newsroom.nlp.language import Language, detect_language
 from newsroom.nlp.telugu import (
     split_sentences,
     strip_dangling_vowel_signs,
+    telugu_ratio,
     transliterate_to_tenglish,
     truncate_sentences,
     word_boundary,
@@ -115,11 +116,27 @@ def _heuristic_headline(facts: Sequence[Any], language: str,
     if source_title and _source_only(facts):
         text = source_title
 
+    if language == "te" and telugu_ratio(text) < 0.3:
+        # Telugu script is the only source of a Telugu headline. The primary
+        # fact of a story whose sources publish in English carries English in
+        # text_te; publishing it as-is is how English reached the Telugu column.
+        return Draft(language, "", "", "", 0, "heuristic",
+                     ["primary fact is not Telugu script; Telugu withheld"])
+
     text = _clean_headline(text)
     if not text:
         return Draft(language, "", "", "", 0, "heuristic", ["headline cleaned to nothing"])
 
     if language == "ten":
+        # Roman Telugu can only come from Telugu script. Transliteration is a
+        # no-op on Latin input, so romanising an English fact would emit the
+        # English sentence unchanged and it would be published as Tenglish --
+        # which is how the ten column filled up with wire copy. Refuse instead,
+        # the same way _to_english_sketch refuses to fake an English headline
+        # out of Telugu script.
+        if telugu_ratio(text) < 0.3:
+            return Draft(language, "", "", "", 0, "heuristic",
+                         ["source fact is not Telugu script; Tenglish withheld"])
         text = transliterate_to_tenglish(text)
     elif language == "en":
         text = _to_english_sketch(text, facts, district)
@@ -129,6 +146,13 @@ def _heuristic_headline(facts: Sequence[Any], language: str,
         place = district or "Telangana"
     elif language == "ten":
         place = district or "Telangana"
+    elif district and telugu_ratio(district) < 0.2:
+        # A district name in Latin letters has no business on a Telugu headline:
+        # it is the one thing that turns a correct Telugu line into a mixed-script
+        # one, and the language gate measures it as English leakage. The
+        # district is already carried by the story's section, so nothing is lost
+        # by leaving it off the Telugu rendering.
+        place = "తెలంగాణ"
 
     if not _contains_place(text, place):
         text = f"{text} – {place}" if language in ("en", "ten") else f"{text} | {place}"
@@ -220,7 +244,19 @@ def _heuristic_article(facts: Sequence[Any], language: str,
         if not text:
             continue
         attribution = fact.attributed_to
+        if language in ("te", "ten"):
+            # Telugu script is the only source for both Telugu and Roman Telugu.
+            # A clustered story can carry an English fact alongside Telugu ones,
+            # and composing the Telugu body from both yields one sentence of
+            # each script in the same paragraph; the language gate measures
+            # that as leakage and the reader sees it as a broken translation.
+            # The English fact still serves the en rendering.
+            if telugu_ratio(text) < 0.3:
+                continue
         if language == "ten":
+            # Only Telugu script romanises into Roman Telugu; a Latin-script
+            # fact would pass through transliteration untouched and be
+            # published as Tenglish. Skipped here, not faked.
             text = transliterate_to_tenglish(text)
             attribution = transliterate_to_tenglish(attribution) if attribution else None
         if language == "en" and fact.text_en is None:

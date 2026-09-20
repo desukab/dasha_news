@@ -34,7 +34,7 @@ from newsroom.db.models import (
 from newsroom.domain.evidence import EvidenceLevel
 from newsroom.media.audio import render_audio
 from newsroom.media.media import build_short_script, generate_poster
-from newsroom.nlp.language import Language, detect_language
+from newsroom.nlp.language import Language, detect_language, validate_language
 from newsroom.pipeline.dedupe import (
     ClusterCandidate,
     dedupe_article,
@@ -62,7 +62,7 @@ PIPELINE_STAGES = (
 
 @dataclass
 class SweepReport:
-    started_at: datetime
+    started_at: datetime = field(default_factory=datetime.utcnow)
     finished_at: Optional[datetime] = None
     sources: int = 0
     articles_fetched: int = 0
@@ -74,6 +74,25 @@ class SweepReport:
     stories_held: int = 0
     media_generated: int = 0
     errors: List[str] = field(default_factory=list)
+    # Every rendering refused for being written in the wrong script. Reported
+    # per sweep so a language regression is visible in the run output rather
+    # than only as a missing language on a story.
+    language_rejections: List[str] = field(default_factory=list)
+    # first_seen_at -> processed_at per story, in seconds. The interval the
+    # reader cares about is "how long between a publisher posting and the
+    # newsroom having a finished story"; the median is the honest summary,
+    # because a slow source's fetch dominates the tail.
+    latencies: List[float] = field(default_factory=list)
+
+    @property
+    def median_latency_seconds(self) -> Optional[float]:
+        if not self.latencies:
+            return None
+        ordered = sorted(self.latencies)
+        mid = len(ordered) // 2
+        if len(ordered) % 2:
+            return ordered[mid]
+        return (ordered[mid - 1] + ordered[mid]) / 2.0
 
     @property
     def duration_seconds(self) -> float:
@@ -96,6 +115,10 @@ class SweepReport:
             "stories_held": self.stories_held,
             "media_generated": self.media_generated,
             "errors": self.errors[:20],
+            "language_rejections": self.language_rejections[:20],
+            "median_latency_seconds": (round(self.median_latency_seconds, 2)
+                                       if self.median_latency_seconds is not None
+                                       else None),
         }
 
 
@@ -248,7 +271,7 @@ def run_sweep(session: Session, *, fetch_bodies: bool = True,
               limit_sources: Optional[int] = None,
               include_disabled: bool = False) -> SweepReport:
     """One full newsroom pass. Idempotent."""
-    report = SweepReport(started_at=datetime.utcnow())
+    report = SweepReport()
 
     query = select(Source)
     if not include_disabled:
@@ -566,17 +589,50 @@ def _write_story(session: Session, story: Story, source: Source,
                 fact_views, language=language,
                 headline=headline_draft.headline, district=story.district,
                 session=session, story_id=story.id)
-            if article_draft.body:
-                setattr(story, f"headline_{language}", article_draft.headline or headline_draft.headline)
-                setattr(story, f"lead_{language}", article_draft.lead)
-                setattr(story, f"body_{language}", article_draft.body)
-                coverage.append(language)
+            if not article_draft.body:
+                continue
+
+            # Language gate. A rendering written in the wrong script is not a
+            # rendering of that language, however much text the writer emitted:
+            # the heuristic writer composes `te` from facts[0].text_te, and that
+            # field is English for any source that does not actually publish in
+            # Telugu. Publishing it would hand the reader an English headline
+            # under a Telugu column, so the language is withheld from coverage
+            # and the publish gate sees the story as still untranslated. The
+            # field is cleared too, so a later sweep cannot read a stale
+            # English value back out of the Telugu column.
+            failed = []
+            for field, value in (("headline", article_draft.headline or headline_draft.headline),
+                                 ("lead", article_draft.lead),
+                                 ("body", article_draft.body)):
+                verdict = validate_language(value, language)
+                if not verdict.ok:
+                    failed.append(f"{field}: {verdict.reason}")
+            if failed:
+                report.language_rejections.append(
+                    f"story {story.id} {language}: " + "; ".join(failed))
+                for attr in ("headline", "lead", "body"):
+                    setattr(story, f"{attr}_{language}", None)
+                continue
+
+            setattr(story, f"headline_{language}", article_draft.headline or headline_draft.headline)
+            setattr(story, f"lead_{language}", article_draft.lead)
+            setattr(story, f"body_{language}", article_draft.body)
+            coverage.append(language)
         except Exception as exc:  # noqa: BLE001
             report.errors.append(f"writer {language}: {type(exc).__name__}: {exc}")
             logger.warning("writer %s failed for story %s: %s", language, story.id, exc)
 
     if story.body_te and _is_new_content(story, articles):
         story.version = (story.version or 1) + 1
+
+    # Stamped after the writers, so it records when the newsroom finished
+    # rendering this story rather than when the article first arrived. The
+    # interval from first_seen_at to here is the pipeline's latency.
+    story.processed_at = datetime.utcnow()
+    if story.first_seen_at:
+        report.latencies.append(
+            (story.processed_at - story.first_seen_at).total_seconds())
 
     # --- entities -----------------------------------------------------------
     _extract_entities(session, story, corpus)
@@ -876,3 +932,4 @@ class _SweepStub:
     stories_published: int = 0
     stories_held: int = 0
     stories_updated: int = 0
+    latencies: List[float] = field(default_factory=list)

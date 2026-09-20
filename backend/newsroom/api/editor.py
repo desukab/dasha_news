@@ -20,6 +20,7 @@ in the orchestrator, not asked for by the client.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -40,8 +41,10 @@ from newsroom.db.models import (
     Story,
     StoryOrigin,
     StoryUpdate,
+    Submission,
     User,
 )
+from newsroom.domain.evidence import EvidenceLevel
 from newsroom.pipeline.orchestrator import regenerate_story
 from newsroom.pipeline.publish import StoryChange, record_update
 from newsroom.security.auth import (
@@ -202,7 +205,7 @@ def list_stories(request: Request, db: Session = Depends(get_db),
             Story.needs_review.is_(True),
         ))
     if origin:
-        if origin not in StoryOrigin.allowed():
+        if origin not in {member.value for member in StoryOrigin}:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail=f"Unknown origin {origin!r}")
         query = query.where(Story.origin == origin)
@@ -551,6 +554,254 @@ def remove_fact(fact_id: int, request: Request, db: Session = Depends(get_db),
 
 
 # ---------------------------------------------------------------------------
+# Reader submissions: tips from the app, triaged by a person
+# ---------------------------------------------------------------------------
+
+# What an editor may move a submission to. Deliberately narrower than the
+# admin endpoint's set: "published" is not among them. A reader tip reaching
+# the feed is *never* a status change on the submission row -- it is a Story
+# the editor wrote, checked, and published through the ordinary story path.
+SUBMISSION_STATUSES = ("new", "triaged", "verified", "rejected")
+
+
+def _submission_or_404(db: Session, submission_id: int) -> Submission:
+    submission = db.get(Submission, submission_id)
+    if submission is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Submission not found")
+    return submission
+
+
+def _submission_summary(row: Submission) -> Dict[str, Any]:
+    """One submission for the queue list.
+
+    The queue shows a short sketch, not the whole tip: a reader can submit
+    several paragraphs, and a desk scanning the list needs the first line to
+    decide whether to open it. The full text is the detail endpoint below.
+    """
+    return {
+        "id": row.id,
+        "headline": _submission_headline(row),
+        "body": row.body,
+        "category": row.category,
+        "location_text": row.location_text,
+        "contact": row.contact,
+        "media_path": row.media_path,
+        "status": row.status,
+        "triage_note": row.triage_note,
+        "story_id": row.story_id,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+def _submission_headline(row: Submission) -> str:
+    """A short label for the queue, from the submitter's own first line.
+
+    Never invented: it is the submission's first meaningful line, trimmed to a
+    list-friendly length. Splitting on the sentence end a Telugu wire item
+    carries, or a newline, or a Latin full stop, is what keeps "దశ, కాజీపేట:"
+    datelines out of the label.
+    """
+    body = (row.body or "").strip()
+    if not body:
+        return "(empty submission)"
+    first_line = _FIRST_LINE.split(body, maxsplit=1)[0].strip()
+    if not first_line:
+        first_line = body.split("\n", 1)[0].strip()
+    return first_line[:140]
+
+
+_FIRST_LINE = re.compile(r"[।\n.!?]")
+
+# Which headline column a tip belongs in, by the script it was written in.
+_SUBMISSION_HEADLINE_FIELD = {
+    "te": "headline_te",
+    "ten": "headline_ten",
+    "en": "headline_en",
+}
+
+
+def submission_language(submission: Submission) -> str:
+    """The script a reader wrote their tip in.
+
+    A submission carries no language field -- the reader just typed -- so the
+    script is the only honest signal. Telugu script is Telugu; Latin script is
+    Tenglish if it keeps Telugu words' open syllables and English otherwise.
+    Anything unreadable falls back to Telugu, the paper's first language,
+    rather than silently relabelling the tip.
+    """
+    from newsroom.nlp.language import detect_language
+
+    detected = detect_language(submission.body)
+    if detected.value in _SUBMISSION_HEADLINE_FIELD:
+        return detected.value
+    return "te"
+
+
+@router.get("/submissions")
+def list_submissions(request: Request, db: Session = Depends(get_db),
+                     user: User = Depends(require_editor),
+                     status_filter: Optional[str] = Query(default=None, alias="status"),
+                     page: int = Query(default=1, ge=1),
+                     page_size: int = Query(default=25, ge=1, le=100)) -> Any:
+    """The reader-tip queue, newest first.
+
+    A tip carries a submitter's contact details, so reading the queue is an
+    editor action, not a reader one: the app's session token is the gate, not
+    an admin key baked into the APK.
+    """
+    query = select(Submission)
+    if status_filter:
+        if status_filter not in SUBMISSION_STATUSES:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail=f"Unknown status {status_filter!r}")
+        query = query.where(Submission.status == status_filter)
+
+    total = db.execute(select(func.count()).select_from(
+        query.subquery())).scalar_one()
+    new_count = db.execute(select(func.count(Submission.id)).where(
+        Submission.status == "new")).scalar_one()
+    rows = db.execute(query.order_by(Submission.created_at.desc())
+                      .offset((page - 1) * page_size).limit(page_size)
+                      ).scalars().all()
+    return {
+        "items": [_submission_summary(row) for row in rows],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "has_more": page * page_size < total,
+        "new_count": new_count,
+    }
+
+
+@router.get("/submissions/{submission_id}")
+def get_submission(submission_id: int, db: Session = Depends(get_db),
+                   user: User = Depends(require_editor)) -> Any:
+    """One submission, complete and exactly as the reader sent it.
+
+    Nothing here is corrected, translated or summarised. The desk has to judge
+    the tip on what was actually typed, so the raw text is what they get.
+    """
+    return _submission_summary(_submission_or_404(db, submission_id))
+
+
+@router.post("/submissions/{submission_id}/triage")
+def triage_submission(submission_id: int, request: Request,
+                      db: Session = Depends(get_db),
+                      user: User = Depends(require_editor),
+                      body: Dict[str, Any] = Body(...)) -> Any:
+    """Move a submission along the review queue.
+
+    ``status`` is a triage label on the *tip*, not a publishing action: it
+    says where the desk is with verifying the reader's account. Taking a tip
+    to the feed happens through the story path, by converting it to a draft
+    and publishing that.
+    """
+    submission = _submission_or_404(db, submission_id)
+    new_status = body.get("status")
+    if new_status not in SUBMISSION_STATUSES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"status must be one of {list(SUBMISSION_STATUSES)}")
+    submission.status = new_status
+    submission.triage_note = body.get("note")
+    audit(db, _actor(user), "submission_triage", "submission", submission.id,
+          detail=new_status, ip=client_ip(request))
+    db.commit()
+    return _submission_summary(submission)
+
+
+@router.post("/submissions/{submission_id}/story", status_code=status.HTTP_201_CREATED)
+def submission_to_story(submission_id: int, request: Request,
+                        db: Session = Depends(get_db),
+                        user: User = Depends(require_editor),
+                        body: Dict[str, Any] = Body(default={})) -> Any:
+    """Turn a verified reader tip into a draft story.
+
+    The one rule this endpoint exists to keep: a tip is a lead, not evidence.
+    The reader's text is carried onto the draft as a single *unverified* fact
+    attributed to the submitter, and the submission's provenance is preserved
+    both on the row (``story_id``) and in the audit trail -- so the newsroom
+    can always see which reader tip a published story began as.
+
+    The draft is created unpublished, at ``status=draft``. Publishing is a
+    separate editor action on the story, after verification.
+    """
+    import hashlib as _hashlib
+
+    submission = _submission_or_404(db, submission_id)
+    if submission.story_id is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail=f"Submission {submission.id} already became "
+                                   f"story {submission.story_id}")
+
+    headline = (str(body.get("headline_te") or "").strip()
+                or _submission_headline(submission))
+    section = str(body.get("section") or submission.category or "general")
+
+    story = Story(
+        cluster_id=f"submission-{submission.id}-{_hashlib.sha256(
+            headline.encode('utf-8')).hexdigest()[:16]}",
+        slug=headline[:280],
+        section=section,
+        status="draft",
+        origin=StoryOrigin.MANUAL.value,
+        editor_locked=True,
+        created_by_id=user.id,
+        updated_by_id=user.id,
+        district=body.get("district") or submission.location_text,
+        state=body.get("state") or "Telangana",
+    )
+    # The tip's own script decides which headline column it belongs in. A
+    # submission arrives in whatever the reader typed -- Telugu script, or
+    # Roman Telugu, or English -- and putting an English tip into headline_te
+    # would publish English copy under the Telugu column, the same leak the
+    # writers elsewhere refuse to commit.
+    if not body.get("headline_te"):
+        setattr(story, _SUBMISSION_HEADLINE_FIELD[submission_language(submission)],
+                headline)
+    _apply_editor_fields(story, body)
+    db.add(story)
+    db.flush()
+
+    # The tip itself, carried across at the evidence level it actually has.
+    # A reader's say-so is unverified single-source material, and it is stored
+    # as that: attributing it to the submitter by name, and never at a level
+    # that would let it through the auto-publish gate on its own.
+    attribution = submission.contact or f"reader submission #{submission.id}"
+    db.add(Fact(
+        story_id=story.id,
+        text_te=submission.body,
+        evidence_level=EvidenceLevel.UNVERIFIED.value,
+        confidence=0.3,
+        attributed_to=attribution,
+        rank=0,
+        status="active",
+    ))
+
+    record_update(db, story, StoryChange(
+        kind="note", headline=headline,
+        text_te=f"పాఠకుడు పంపిన సమాచారం నుండి సృష్టించబడింది. ఇది నిర్ధారణ కోసం "
+                f"సమర్పితమైనది (submission #{submission.id}).",
+        text_en=f"Created from reader submission #{submission.id}; the tip is "
+                f"unverified and awaits confirmation.",
+        article_id=None, applied_by=_actor(user),
+        note=f"converted from submission #{submission.id} by {_actor(user)}"))
+    audit(db, _actor(user), "submission_to_story", "submission", submission.id,
+          detail=f"story={story.id}", ip=client_ip(request))
+    audit(db, _actor(user), "story_create", "story", story.id,
+          detail=f"origin=submission#{submission.id} status=draft",
+          ip=client_ip(request))
+
+    # Link last, so the submission only points at the story once both the row
+    # and the provenance records exist.
+    submission.story_id = story.id
+    if submission.status == "new":
+        submission.status = "triaged"
+    db.commit()
+    return to_story_detail(db, story).model_dump()
+
+
+# ---------------------------------------------------------------------------
 # Pipeline inspection: what the machine is doing
 # ---------------------------------------------------------------------------
 
@@ -590,8 +841,8 @@ def list_failures(user: User = Depends(require_editor),
     articles = db.execute(select(Article).where(Article.status == "failed")
                           .order_by(Article.ingested_at.desc())
                           .offset((page - 1) * page_size).limit(page_size)).scalars().all()
-    jobs = db.execute(select(Job).where(Job.status == "failed")
-                      .order_by(Job.updated_at.desc())
+    jobs = db.execute(select(Job).where(Job.status.in_(("failed", "dead")))
+                      .order_by(Job.finished_at.desc().nullslast())
                       .limit(page_size)).scalars().all()
     total = db.execute(select(func.count(Article.id)).where(
         Article.status == "failed")).scalar_one()
@@ -603,8 +854,9 @@ def list_failures(user: User = Depends(require_editor),
             for a in articles
         ],
         "jobs": [
-            {"id": j.id, "kind": j.kind, "status": j.status,
-             "attempts": j.attempts, "error": j.last_error}
+            {"id": j.id, "kind": j.stage, "status": j.status,
+             "attempts": j.attempts, "error": j.error,
+             "finished_at": j.finished_at.isoformat() if j.finished_at else None}
             for j in jobs
         ],
         **paginate([], total, page, page_size),
