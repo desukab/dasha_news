@@ -22,12 +22,16 @@ void main() {
   });
 
   test('the masthead date line formats in both languages', () {
-    final line = _dateLine(const AppStrings('te'));
+    // Pinned to a fixed date: the line is derived from DateTime.now(), and a
+    // test that asserts one weekday while reading today's breaks every time
+    // the calendar moves off it.
+    final when = DateTime(2026, 9, 19);
+    final line = _dateLine(const AppStrings('te'), when);
     expect(line, isNotEmpty);
     // Saturday in Telugu, unmangled by the formatter.
     expect(line, contains('శనివారం'));
 
-    final english = _dateLine(const AppStrings('en'));
+    final english = _dateLine(const AppStrings('en'), when);
     expect(english, contains('Saturday'));
   });
 
@@ -46,8 +50,8 @@ void main() {
 
 /// Mirrors HomePage._dateLine, so this test owns the formatting contract without
 /// having to pump the whole front page.
-String _dateLine(AppStrings strings) {
-  final english = formatIndianDate('EEEE, d MMMM y', DateTime.now()).split(', ');
+String _dateLine(AppStrings strings, DateTime when) {
+  final english = formatIndianDate('EEEE, d MMMM y', when).split(', ');
   final weekday = english.first;
   final rest = english.last.split(' ');
   if (strings.code != 'te') return english.join(', ');
