@@ -228,6 +228,58 @@ class EditorApiClient {
   }
 
   // --------------------------------------------------------------------------
+  // Reader submissions: tips the desk triages by hand
+  // --------------------------------------------------------------------------
+
+  /// The reader-tip queue, newest first.
+  ///
+  /// Contact details travel with a tip, so the newsroom gates this on the
+  /// editor session rather than a key compiled into the app.
+  Future<SubmissionPage> submissions({String? status, int page = 1}) async {
+    final query = <String, String>{'page': '$page'};
+    if (status != null) query['status'] = status;
+    final json = await _json('GET', _uri('/submissions', query));
+    return SubmissionPage.fromJson(json);
+  }
+
+  Future<SubmissionView> submission(int id) async {
+    final json = await _json('GET', _uri('/submissions/$id'));
+    return SubmissionView.fromJson(json);
+  }
+
+  /// Move a tip along the review queue. A triage label, not a publish.
+  Future<SubmissionView> triageSubmission(
+    int id, {
+    required String status,
+    String? note,
+  }) async {
+    final json = await _json('POST', _uri('/submissions/$id/triage'), body: {
+      'status': status,
+      if (note != null && note.isNotEmpty) 'note': note,
+    });
+    return SubmissionView.fromJson(json);
+  }
+
+  /// Turn a verified tip into a draft story.
+  ///
+  /// The newsroom keeps the tip's evidence level honest -- it lands as an
+  /// unverified claim attributed to the submitter -- and this returns the
+  /// draft the desk then writes and publishes.
+  Future<StoryDetail> submissionToStory(
+    int id, {
+    String? headlineTe,
+    String? section,
+    String? district,
+  }) async {
+    final json = await _json('POST', _uri('/submissions/$id/story'), body: {
+      if (headlineTe != null && headlineTe.isNotEmpty) 'headline_te': headlineTe,
+      if (section != null && section.isNotEmpty) 'section': section,
+      if (district != null && district.isNotEmpty) 'district': district,
+    });
+    return StoryDetail.fromJson(json);
+  }
+
+  // --------------------------------------------------------------------------
   // The automated newsroom
   // --------------------------------------------------------------------------
 

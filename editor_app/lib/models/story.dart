@@ -426,3 +426,97 @@ class PipelineFailures {
   final int total;
   final bool hasMore;
 }
+
+/// A reader-submitted tip, as the desk sees it.
+///
+/// The queue item and the detail view are the same shape: the list carries
+/// the full [body] so the desk can decide from the queue whether to open it,
+/// and nothing here is corrected, translated or summarised. A reader's tip is
+/// unverified until a person confirms it, and the model keeps that visible.
+@immutable
+class SubmissionView {
+  const SubmissionView({
+    required this.id,
+    required this.headline,
+    required this.body,
+    required this.status,
+    required this.createdAt,
+    this.category,
+    this.locationText,
+    this.contact,
+    this.mediaPath,
+    this.triageNote,
+    this.storyId,
+  });
+
+  factory SubmissionView.fromJson(Map<String, dynamic> json) {
+    return SubmissionView(
+      id: json['id'] as int,
+      headline: json['headline'] as String? ?? '(empty submission)',
+      body: json['body'] as String? ?? '',
+      category: json['category'] as String?,
+      locationText: json['location_text'] as String?,
+      contact: json['contact'] as String?,
+      mediaPath: json['media_path'] as String?,
+      status: json['status'] as String? ?? 'new',
+      triageNote: json['triage_note'] as String?,
+      storyId: json['story_id'] as int?,
+      createdAt: json['created_at'] as String? ?? '',
+    );
+  }
+
+  final int id;
+  final String headline;
+  final String body;
+  final String? category;
+  final String? locationText;
+  final String? contact;
+  final String? mediaPath;
+  final String status;
+  final String? triageNote;
+  final int? storyId;
+  final String createdAt;
+
+  /// A tip that has already become a story is not converted twice.
+  bool get isConverted => storyId != null;
+
+  /// The triage states the desk moves a tip through. "published" is not among
+  /// them and cannot be: a tip reaches the feed as a story an editor wrote and
+  /// published, never by relabelling the submission.
+  bool get canConvert => !isConverted;
+
+  String copy() => 'Tip #$id · $status${locationText != null ? ' · $locationText' : ''}';
+}
+
+/// The triage states the newsroom accepts for a reader tip.
+const List<String> submissionStatuses = ['new', 'triaged', 'verified', 'rejected'];
+
+/// A page of submissions plus the count still unread, which is what the tab
+/// badge reports. [newCount] comes from the server rather than being counted
+/// locally, so opening a tab does not silently re-trump a triage done from
+/// another device.
+@immutable
+class SubmissionPage {
+  const SubmissionPage({
+    required this.items,
+    required this.total,
+    required this.hasMore,
+    required this.newCount,
+  });
+
+  factory SubmissionPage.fromJson(Map<String, dynamic> json) {
+    return SubmissionPage(
+      items: ((json['items'] as List?) ?? const [])
+          .map((e) => SubmissionView.fromJson(e as Map<String, dynamic>))
+          .toList(growable: false),
+      total: json['total'] as int? ?? 0,
+      hasMore: json['has_more'] as bool? ?? false,
+      newCount: json['new_count'] as int? ?? 0,
+    );
+  }
+
+  final List<SubmissionView> items;
+  final int total;
+  final bool hasMore;
+  final int newCount;
+}

@@ -1,9 +1,9 @@
 /// The desk's queue.
 ///
-/// Four tabs: what needs a person, everything, what the desk wrote by hand,
-/// and what the automated newsroom gave up on. The counts in the pipeline tab
-/// come from the health endpoint, so the badge reflects the server's state
-/// rather than a local guess.
+/// Five tabs: what needs a person, everything, what the desk wrote by hand,
+/// the reader tips waiting to be confirmed, and what the automated newsroom
+/// gave up on. The counts in the last two tabs come from the server, so the
+/// badges reflect the newsroom's state rather than a local guess.
 library;
 
 import 'package:flutter/material.dart';
@@ -11,10 +11,12 @@ import 'package:provider/provider.dart';
 
 import 'package:dasha_editor/models/story.dart';
 import 'package:dasha_editor/state/session_state.dart';
+import 'package:dasha_editor/state/submissions_state.dart';
 import 'package:dasha_editor/state/workqueue_state.dart';
 import 'package:dasha_editor/ui/pipeline_page.dart';
 import 'package:dasha_editor/ui/story_detail_page.dart';
 import 'package:dasha_editor/ui/story_edit_page.dart';
+import 'package:dasha_editor/ui/submissions_page.dart';
 import 'package:dasha_editor/ui/theme.dart';
 import 'package:dasha_editor/ui/widgets.dart';
 
@@ -27,7 +29,9 @@ class WorkQueuePage extends StatefulWidget {
 
 class _WorkQueuePageState extends State<WorkQueuePage> with TickerProviderStateMixin {
   late final TabController _tabs;
+  SubmissionsState? _tips;
   PipelineHealth? _health;
+  int _newTips = 0;
 
   static const _queueTabs = [
     WorkQueueTab.attention,
@@ -38,7 +42,7 @@ class _WorkQueuePageState extends State<WorkQueuePage> with TickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 4, vsync: this);
+    _tabs = TabController(length: 5, vsync: this);
     _tabs.addListener(() {
       if (_tabs.indexIsChanging || _tabs.index >= _queueTabs.length) return;
       context.read<WorkQueueState>().selectTab(_queueTabs[_tabs.index]);
@@ -49,6 +53,23 @@ class _WorkQueuePageState extends State<WorkQueuePage> with TickerProviderStateM
     });
   }
 
+  /// The tip queue needs the signed client, which is read here rather than in
+  /// initState: the session sits above the navigator, and this is the point in
+  /// the lifecycle where looking up a dependency is safe.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_tips != null) return;
+    final tips = SubmissionsState(context.read<SessionState>().client);
+    // The unread count is the server's, so a tip cleared from another desk
+    // does not keep its badge here.
+    tips.addListener(() {
+      if (mounted) setState(() => _newTips = tips.newCount);
+    });
+    _tips = tips;
+    WidgetsBinding.instance.addPostFrameCallback((_) => tips.refresh());
+  }
+
   void _refreshHealth() {
     context.read<SessionState>().client.pipelineHealth().then((health) {
       if (mounted) setState(() => _health = health);
@@ -57,6 +78,7 @@ class _WorkQueuePageState extends State<WorkQueuePage> with TickerProviderStateM
 
   @override
   void dispose() {
+    _tips?.dispose();
     _tabs.dispose();
     super.dispose();
   }
@@ -74,6 +96,7 @@ class _WorkQueuePageState extends State<WorkQueuePage> with TickerProviderStateM
             const Tab(text: 'Needs attention'),
             const Tab(text: 'All stories'),
             const Tab(text: 'Written by hand'),
+            SubmissionsTab(newCount: _newTips),
             Tab(
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 const Text('Pipeline'),
@@ -99,7 +122,10 @@ class _WorkQueuePageState extends State<WorkQueuePage> with TickerProviderStateM
           _queue(emptyText: 'Nothing is waiting on a person.'),
           _queue(emptyText: 'The queue is empty.'),
           _queue(emptyText: 'No story has been written by hand yet.'),
-          PipelinePage(onRetried: _refreshHealth),
+          SubmissionsPage(
+            key: const ValueKey('reader-tips'),
+            state: _tips,
+          ),          PipelinePage(onRetried: _refreshHealth),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(

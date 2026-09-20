@@ -103,6 +103,20 @@ const _storyJson = {
   'version': 1,
 };
 
+const _submissionJson = {
+  'id': 1,
+  'headline': 'హైదరాబాద్‌లో పాఠశాల బట్టలు',
+  'body': 'నేను మా పాఠశాలలో చూశాను, బట్టలు తడిగా ఉన్నాయి.',
+  'category': 'education',
+  'location_text': 'హైదరాబాద్',
+  'contact': 'శేఖర్ రెడ్డి',
+  'media_path': null,
+  'status': 'new',
+  'triage_note': null,
+  'story_id': null,
+  'created_at': '2026-09-20T08:30:00+00:00',
+};
+
 void main() {
   // --------------------------------------------------------------------------
   // The wire: paths, methods, the signed header
@@ -289,6 +303,102 @@ void main() {
     await wire.client.withdrawFact(7);
     expect(wire.transport.lastMethod, 'DELETE');
     expect(wire.transport.lastUri.toString(), 'http://test.local/editor/facts/7');
+  });
+
+  // --------------------------------------------------------------------------
+  // Reader submissions: the tip queue the desk triages by hand
+  // --------------------------------------------------------------------------
+
+  test('the tip queue is newest first and carries the unread count', () async {
+    final wire = _wire((req) async => _jsonResponse({
+          'items': [_submissionJson],
+          'total': 1,
+          'has_more': false,
+          'new_count': 2,
+        }));
+    final page = await wire.client.submissions(status: 'new');
+
+    expect(wire.transport.lastMethod, 'GET');
+    expect(wire.transport.lastUri.path, '/editor/submissions');
+    expect(wire.transport.lastUri.queryParameters, {'status': 'new', 'page': '1'});
+    expect(page.newCount, 2);
+    expect(page.items.single.id, 1);
+    expect(page.items.single.headline, 'హైదరాబాద్‌లో పాఠశాల బట్టలు');
+    expect(page.items.single.body, contains('మా పాఠశాలలో'));
+  });
+
+  test('the tip queue is asked for every status when no filter is set',
+      () async {
+    final wire = _wire((req) async => _jsonResponse({
+          'items': [],
+          'total': 0,
+          'has_more': false,
+          'new_count': 0,
+        }));
+    await wire.client.submissions();
+    expect(wire.transport.lastUri.queryParameters, {'page': '1'});
+    expect(wire.transport.lastUri.queryParameters.containsKey('status'), isFalse);
+  });
+
+  test('one tip is fetched by id for the detail view', () async {
+    final wire = _wire((req) async => _jsonResponse(_submissionJson));
+    final tip = await wire.client.submission(1);
+    expect(wire.transport.lastUri.toString(),
+        'http://test.local/editor/submissions/1');
+    expect(tip.contact, 'శేఖర్ రెడ్డి');
+    expect(tip.locationText, 'హైదరాబాద్');
+  });
+
+  test('triage posts the label and the desk note, and nothing else', () async {
+    final wire = _wire((req) async => _jsonResponse({
+          ..._submissionJson,
+          'status': 'verified',
+          'triage_note': 'confirmed by phone',
+        }));
+    final updated = await wire.client.triageSubmission(1,
+        status: 'verified', note: 'confirmed by phone');
+
+    expect(wire.transport.lastMethod, 'POST');
+    expect(wire.transport.lastUri.toString(),
+        'http://test.local/editor/submissions/1/triage');
+    expect(wire.transport.lastBody, {
+      'status': 'verified',
+      'note': 'confirmed by phone',
+    });
+    expect(updated.status, 'verified');
+    expect(updated.triageNote, 'confirmed by phone');
+  });
+
+  test('a triage without a note omits the key rather than sending it blank',
+      () async {
+    final wire = _wire((req) async => _jsonResponse(_submissionJson));
+    await wire.client.triageSubmission(1, status: 'triaged');
+    expect(wire.transport.lastBody, {'status': 'triaged'});
+    expect(wire.transport.lastBody.containsKey('note'), isFalse);
+  });
+
+  test('turning a tip into a story posts only the fields the desk filled in',
+      () async {
+    final wire = _wire((req) async => _jsonResponse(_storyJson));
+    await wire.client.submissionToStory(1,
+        headlineTe: 'హైదరాబాద్ బట్టలు',
+        section: 'education',
+        district: 'హైదరాబాద్');
+
+    expect(wire.transport.lastMethod, 'POST');
+    expect(wire.transport.lastUri.toString(),
+        'http://test.local/editor/submissions/1/story');
+    expect(wire.transport.lastBody, {
+      'headline_te': 'హైదరాబాద్ బట్టలు',
+      'section': 'education',
+      'district': 'హైదరాబాద్',
+    });
+  });
+
+  test('a tip with no desk overrides sends an empty body', () async {
+    final wire = _wire((req) async => _jsonResponse(_storyJson));
+    await wire.client.submissionToStory(1);
+    expect(wire.transport.lastBody, isEmpty);
   });
 
   // --------------------------------------------------------------------------

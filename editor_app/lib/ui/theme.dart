@@ -33,6 +33,24 @@ Color statusColor(String status) {
   }
 }
 
+/// The review queue a reader tip moves through. "published" is not among
+/// these and cannot be: a tip reaches the feed as a story an editor wrote and
+/// published, never by relabelling the submission.
+Color submissionStatusColor(String status) {
+  switch (status) {
+    case 'new':
+      return _accent;
+    case 'triaged':
+      return const Color(0xFF8A6D1F);
+    case 'verified':
+      return _good;
+    case 'rejected':
+      return _muted;
+    default:
+      return _muted;
+  }
+}
+
 Color evidenceColor(String level) {
   switch (level) {
     case 'fact':
