@@ -55,6 +55,9 @@ class AppStrings {
       savedStory: 'సేవ్ అయింది',
       shareStory: 'షేర్ చేయండి',
       sources: 'మూలాలు',
+      sharedFrom: 'దీన్ని షేర్ చేసినది',
+      streamEnd: 'ఇవే ఈ రోజు వార్తలు',
+      refreshStream: 'మళ్లీ తీసుకోండి',
       facts: 'వాస్తవాలు',
       evidence: 'ఆధారం',
       confidence: 'నమ్మకం',
@@ -157,6 +160,9 @@ class AppStrings {
       savedStory: 'Saved',
       shareStory: 'Share',
       sources: 'Sources',
+      sharedFrom: 'Shared from',
+      streamEnd: 'That is all for now',
+      refreshStream: 'Fetch again',
       facts: 'Facts',
       evidence: 'Evidence',
       confidence: 'Confidence',
@@ -264,6 +270,29 @@ class AppStrings {
   String get savedStory => _lang.savedStory;
   String get shareStory => _lang.shareStory;
   String get sources => _lang.sources;
+  String get sharedFrom => _lang.sharedFrom;
+
+  /// The screen after the last story in the stream.
+  ///
+  /// A bulletin ends, and the reader should know it has ended rather than
+  /// wonder whether the next swipe is coming. Said plainly, in the register a
+  /// newsreader closes with.
+  String get streamEnd => _lang.streamEnd;
+  String get refreshStream => _lang.refreshStream;
+
+  /// How many outlets are behind a story, in the language's own plural.
+  ///
+  /// Telugu marks the singular: ఒక్క మూలం against మూలాలు. A count is the one
+  /// number a reader of short news is shown, so it is worth saying right.
+  String sourceCount(int n) {
+    // One language decision, three plural rules: zero is its own case and not
+    // a degenerate singular, because a story the wire filed with no sources is
+    // not a story with one.
+    final telugu = code == 'te';
+    if (n == 0) return telugu ? 'మూలం లేదు' : 'no sources';
+    if (n == 1) return telugu ? 'ఒక్క మూలం' : '1 source';
+    return telugu ? '$n మూలాలు' : '$n sources';
+  }
   String get facts => _lang.facts;
   String get evidence => _lang.evidence;
   String get confidence => _lang.confidence;
@@ -378,6 +407,9 @@ class _Lang {
     required this.savedStory,
     required this.shareStory,
     required this.sources,
+    required this.sharedFrom,
+    required this.streamEnd,
+    required this.refreshStream,
     required this.facts,
     required this.evidence,
     required this.confidence,
@@ -477,6 +509,9 @@ class _Lang {
   final String savedStory;
   final String shareStory;
   final String sources;
+  final String sharedFrom;
+  final String streamEnd;
+  final String refreshStream;
   final String facts;
   final String evidence;
   final String confidence;

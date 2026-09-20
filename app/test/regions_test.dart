@@ -5,40 +5,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:dasha_news/core/api_client.dart';
 import 'package:dasha_news/core/app_strings.dart';
-import 'package:dasha_news/core/config.dart';
-import 'package:dasha_news/core/storage.dart';
-import 'package:dasha_news/core/theme.dart';
 import 'package:dasha_news/state/app_state.dart';
-import 'package:dasha_news/state/history_recorder.dart';
-import 'package:dasha_news/ui/pages/home_page.dart';
-import 'package:dasha_news/widgets/story_card.dart';
+import 'package:dasha_news/widgets/swipe_story_view.dart';
 
-/// The front page's four regions.
+import 'pump_app.dart';
+
+/// The stream's four regions.
 ///
 /// What is being pinned here is the page's contract with the reader, not its
-/// layout: every region is always drawn in the order the reader scans it, an
-/// empty Near You region becomes a prompt rather than a gap, and a story that
-/// the newsroom only has in English never reaches the Telugu front page.
+/// layout: every region is always offered in the order the reader swipes
+/// through it, an empty Near You region becomes a prompt rather than a gap, and
+/// a story the newsroom only has in English never reaches the Telugu stream.
 void main() {
   Future<void> pumpFront(
     WidgetTester tester, {
     required String body,
     required String language,
   }) async {
-    SharedPreferences.setMockInitialValues({onboardingDoneKey: true});
-    final prefs = await SharedPreferences.getInstance();
-    final cache = (await tester.runAsync(
-      () => Directory.systemTemp.createTemp('dasha_regions'),
-    ))!;
-    addTearDown(() => tester.runAsync(() => cache.delete(recursive: true)));
+    final prefs = await onboardedPrefs();
+    final cache = await testCacheDir(tester, 'dasha_regions');
 
     final app = AppState(
-      storage: _NoDiskStorage(prefs, cache),
+      storage: NoDiskStorage(prefs, cache),
       api: ApiClient(
         baseUrl: 'https://newsroom.test',
         client: MockClient((request) async {
@@ -54,30 +45,31 @@ void main() {
     );
     await app.setLocale(language);
 
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider<AppState>.value(value: app),
-          Provider<HistoryRecorder>(create: (_) => HistoryRecorder(app)),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.light(),
-          home: const HomePage(),
-        ),
-      ),
-    );
-
-    await tester.runAsync(
-        () => Future<void>.delayed(const Duration(seconds: 2)));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await pumpStream(tester, app);
   }
 
-  /// The front page is a lazily-built list, and a region below the fold is
-  /// never built until the reader reaches it. This walks the list to the end,
-  /// collecting what rendered, so the assertions see the whole page rather
-  /// than its first screenful.
-  Future<List<String>> visibleHeaders(WidgetTester tester) async {
+  /// The stream's screens from here to the end, which is where the recovery
+  /// gesture and the tip line live. The walk stops on the end note the reader
+  /// sees rather than on a count derived from the fixture, so it does not go
+  /// stale when a fixture's story count changes.
+  ///
+  /// A stream served from a stale cache closes with the offline hint rather
+  /// than the end mark, so both are checked — the recovery test walks a cache
+  /// stream first and a live one second.
+  Future<void> walkToEnd(WidgetTester tester) async {
+    const strings = AppStrings('te');
+    for (var i = 0; i < 24; i++) {
+      if (find.text(strings.streamEnd).evaluate().isNotEmpty) break;
+      if (find.text(strings.offlineHint).evaluate().isNotEmpty) break;
+      await swipeNext(tester);
+    }
+  }
+
+  /// The stream is a lazily-built pager, and a screen the reader has not swiped
+  /// to is never built. This walks the stream to the end, collecting which
+  /// region labels rendered, so the assertions see the whole stream rather
+  /// than its first screen.
+  Future<List<String>> visibleRegions(WidgetTester tester) async {
     final labels = <String>[];
     for (var i = 0; i < 24; i++) {
       for (final label in const [
@@ -94,20 +86,19 @@ void main() {
           labels.add(label);
         }
       }
-      await tester.drag(find.byType(ListView), const Offset(0, -420));
-      await tester.pump();
+      await swipeNext(tester);
     }
     return labels;
   }
 
-  testWidgets('the four regions are drawn in the order the reader scans them',
+  testWidgets('the four regions are offered in the order the reader swipes',
       (tester) async {
     await pumpFront(tester,
         body: _frontJson(now: 1, near: 1, telangana: 1, indiaWorld: 1),
         language: 'te');
 
-    final labels = await visibleHeaders(tester);
-    // All four headers are present, and in scan order.
+    final labels = await visibleRegions(tester);
+    // All four regions are there, and in swipe order.
     expect(labels, [
       'ఇప్పుడు',
       'మీ చుట్టూ',
@@ -123,11 +114,14 @@ void main() {
         language: 'te');
 
     const strings = AppStrings('te');
-    // The header is still there, so the reader can see the question was asked.
+    // The prompt is the second screen in the stream, so arrive at it first.
+    await swipeNext(tester);
+    // The region's label is still there, so the reader can see the question was
+    // asked — the prompt carries it, the way a story screen carries its own.
     expect(find.text(strings.regionNear), findsOneWidget);
     expect(find.text(strings.nearNeedsDistrict), findsOneWidget);
-    // And it is the only place the front page offers the district choice from.
-    expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
+    // And the screen is the one place the district choice is offered from.
+    expect(find.byIcon(Icons.place_rounded), findsWidgets);
   });
 
   testWidgets('a Near You region with stories shows no district prompt',
@@ -137,6 +131,8 @@ void main() {
             district: 'Hyderabad'),
         language: 'te');
 
+    // The first Near You story is the second screen in the stream.
+    await swipeNext(tester);
     expect(find.text(const AppStrings('te').nearNeedsDistrict), findsNothing);
     expect(find.text(const AppStrings('te').regionNear), findsOneWidget);
   });
@@ -147,7 +143,7 @@ void main() {
         body: _frontJson(now: 1, near: 0, telangana: 1, indiaWorld: 1),
         language: 'en');
 
-    final labels = await visibleHeaders(tester);
+    final labels = await visibleRegions(tester);
     expect(labels, ['Now', 'Near You', 'Telangana', 'India & World']);
   });
 
@@ -158,23 +154,145 @@ void main() {
             teluguOnly: false),
         language: 'te');
 
-    // The front page is not empty — there is a Telugu story — but nothing is
-    // drawn under a region the story is not in.
-    expect(find.byType(StoryCard), findsOneWidget);
+    // The stream is not empty — there is a Telugu story — but nothing is drawn
+    // under a region the story is not in.
+    expect(find.byType(SwipeStoryView), findsOneWidget);
     expect(find.text(const AppStrings('te').regionTelangana), findsNothing);
+  });
+
+  testWidgets('the end of the stream still carries the tip line', (tester) async {
+    await pumpFront(tester,
+        body: _frontJson(now: 1, near: 0, telangana: 1, indiaWorld: 1),
+        language: 'te');
+
+    // Walk to the end. The stream's screens are: Now, the Near You prompt,
+    // Telangana, India & World, then the end note.
+    await walkToEnd(tester);
+
+    const strings = AppStrings('te');
+    expect(find.text(strings.streamEnd), findsOneWidget);
+    // The tip line moved off the floating button and onto the end screen, so
+    // it must still be reachable from the front page.
+    expect(find.text(strings.submitTip), findsOneWidget);
+  });
+
+  testWidgets('the language switch stays one tap away from the stream',
+      (tester) async {
+    await pumpFront(tester,
+        body: _frontJson(now: 1, near: 0, telangana: 1, indiaWorld: 1),
+        language: 'te');
+
+    // The district control replaced the floating button, not the language
+    // switch: a reader who reads Telugu and a reader who reads English both
+    // arrive on the first screen.
+    expect(find.byIcon(Icons.language_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.place_rounded), findsWidgets);
+    expect(find.byType(FloatingActionButton), findsNothing);
+  });
+
+  testWidgets('a stream that recovered from offline stops saying it is offline',
+      (tester) async {
+    // The cache holds the front page from a previous run, so the cold start
+    // shows a stream and marks it as the cache's copy. The newsroom then
+    // answers. A stream that kept the offline end note after recovering told
+    // the reader their connection was broken when it was not.
+    final prefs = await onboardedPrefs();
+    final cache = await testCacheDir(tester, 'dasha_regions_recovered');
+
+    // The first fetch fails offline, the second succeeds. The seeded failure
+    // has to be a SocketException: a ClientException classifies as a plain
+    // network error, which never set the flag in the first place.
+    var calls = 0;
+    final app = AppState(
+      storage: SeededStorage(prefs, cache,
+          _frontJson(now: 1, near: 0, telangana: 1, indiaWorld: 1)),
+      api: ApiClient(
+        baseUrl: 'https://newsroom.test',
+        client: MockClient((request) async {
+          if (!request.url.path.contains('front')) {
+            return http.Response('{"status":"ok"}', 200,
+                headers: const {'content-type': 'application/json'});
+          }
+          calls++;
+          if (calls == 1) {
+            throw const SocketException('socket closed');
+          }
+          return http.Response(
+              _frontJson(now: 1, near: 0, telangana: 1, indiaWorld: 1),
+              200,
+              headers: const {'content-type': 'application/json'});
+        }),
+      ),
+    );
+    await app.setLocale('te');
+
+    await pumpStream(tester, app);
+
+    // Walk to the end twice. The first walk sees the stale cached stream, the
+    // second — after the recovery below — sees the live one.
+    await walkToEnd(tester);
+    expect(find.text(const AppStrings('te').offlineHint), findsOneWidget);
+
+    // The recovery gesture is on the end screen, where a stale stream is most
+    // likely to be noticed.
+    final refresh = find.byIcon(Icons.refresh_rounded);
+    expect(refresh, findsOneWidget);
+    await tester.ensureVisible(refresh);
+    await tester.tap(refresh);
+    await tester.runAsync(
+        () => Future<void>.delayed(const Duration(seconds: 1)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await walkToEnd(tester);
+    expect(find.text(const AppStrings('te').streamEnd), findsOneWidget);
+    expect(find.text(const AppStrings('te').offlineHint), findsNothing);
+  });
+
+  testWidgets('a cache entry the wrong shape is discarded, not shown',
+      (tester) async {
+    // A cache file that is valid JSON but the wrong shape used to escape the
+    // guard: the `as Map` cast inside fromJson fails with a TypeError, which
+    // is not an Exception, so an `on Exception` catch let it reach the
+    // reader's screen as an unhandled error. The cache is the app's own disk,
+    // but it is written from untrusted wire data, so a malformed entry has to
+    // be a miss rather than a crash.
+    final prefs = await onboardedPrefs();
+    final cache = await testCacheDir(tester, 'dasha_regions_corrupt');
+
+    final app = AppState(
+      storage: SeededStorage(prefs, cache, '{"language":"te","now":{"items":[1]}}'),
+      api: ApiClient(
+        baseUrl: 'https://newsroom.test',
+        client: MockClient((request) async {
+          if (request.url.path.contains('front')) {
+            return http.Response(
+                _frontJson(now: 1, near: 0, telangana: 1, indiaWorld: 1),
+                200,
+                headers: const {'content-type': 'application/json'});
+          }
+          return http.Response('{"status":"ok"}', 200,
+              headers: const {'content-type': 'application/json'});
+        }),
+      ),
+    );
+    await app.setLocale('te');
+
+    await pumpStream(tester, app);
+
+    // The corrupt entry was thrown away, and the fresh fetch is what the
+    // reader sees instead of a blank screen.
+    expect(find.byType(SwipeStoryView), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('an unreachable newsroom on a cold start is the retry screen',
       (tester) async {
-    SharedPreferences.setMockInitialValues({onboardingDoneKey: true});
-    final prefs = await SharedPreferences.getInstance();
-    final cache = (await tester.runAsync(
-      () => Directory.systemTemp.createTemp('dasha_regions_down'),
-    ))!;
-    addTearDown(() => tester.runAsync(() => cache.delete(recursive: true)));
+    final prefs = await onboardedPrefs();
+    final cache = await testCacheDir(tester, 'dasha_regions_down');
 
     final app = AppState(
-      storage: _NoDiskStorage(prefs, cache),
+      storage: NoDiskStorage(prefs, cache),
       api: ApiClient(
         baseUrl: 'https://newsroom.test',
         client: MockClient((_) async => http.Response('', 500)),
@@ -182,42 +300,13 @@ void main() {
     );
     await app.setLocale('te');
 
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider<AppState>.value(value: app),
-          Provider<HistoryRecorder>(create: (_) => HistoryRecorder(app)),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.light(),
-          home: const HomePage(),
-        ),
-      ),
-    );
-
-    await tester.runAsync(
-        () => Future<void>.delayed(const Duration(seconds: 2)));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await pumpStream(tester, app);
 
     // No front page arrived and the cache was empty, so the reader is told
     // rather than left on a blank screen.
-    expect(find.byType(StoryCard), findsNothing);
+    expect(find.byType(SwipeStoryView), findsNothing);
     expect(tester.takeException(), isNull);
   });
-}
-
-/// The cache write is real `dart:io` I/O, which never completes inside a widget
-/// test's fake-async zone on this host. Stubbing it keeps the test on the
-/// render path.
-class _NoDiskStorage extends Storage {
-  _NoDiskStorage(super.prefs, super.cache);
-
-  @override
-  Future<void> putCache(String name, String body) async {}
-
-  @override
-  Future<String?> getCache(String name) async => null;
 }
 
 String _frontJson({
@@ -255,8 +344,10 @@ Map<String, dynamic> _card(int i,
     'cluster_id': 'cluster-$i',
     'slug': 'story-$i',
     'section': section,
-    'section_label_te': 'తెలంగాణ',
-    'section_label_en': 'Telangana',
+    // A section name that is not also a region name, so a region-label
+    // assertion is not satisfied by accident by a section label.
+    'section_label_te': 'రాజకీయాలు',
+    'section_label_en': 'Politics',
     'status': 'published',
     'status_label_te': 'ప్రచురితం',
     'importance': 0.8,

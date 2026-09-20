@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
 import '../../core/app_strings.dart';
-import '../../core/error_message.dart';
 import '../../core/config.dart';
+import '../../core/error_message.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../models/front_page.dart';
@@ -15,21 +16,24 @@ import '../../models/story.dart';
 import '../../state/app_state.dart';
 import '../../state/feed_repository.dart';
 import '../../state/history_recorder.dart';
-import '../../state/paged_list.dart';
 import '../main_shell.dart';
 import '../router.dart';
 import '../widgets/masthead.dart';
 import '../../widgets/states_view.dart';
-import '../../widgets/story_card.dart';
+import '../../widgets/swipe_story_view.dart';
 
-/// The front page.
+/// The front page, as a short-news reader reads it: one story to a screen.
 ///
 /// The page is four questions over the same published room — what is happening
 /// now, what is happening near the reader, what is happening in Telangana, and
 /// what is happening beyond it — and the newsroom answers all four in one
-/// request. The app's contribution is the asking: the masthead, the order the
-/// regions are scanned in, and the district the Near You region is filed
-/// against.
+/// request. The app's contribution is the asking and the pace: the stream
+/// flattens those four answers into one sequence the reader thumbs through,
+/// and each screen carries the region it came from so a reader swiping through
+/// twenty stories always knows which question they are inside.
+///
+/// A reader who wants the whole story taps the screen. A reader who wants the
+/// next story swipes up. Nothing else is asked of them.
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -38,13 +42,11 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends TabPageState<HomePage> {
-  final ScrollController _controller = ScrollController();
-
-  /// The developing rail has its own repository and page list, because it is a
-  /// separate endpoint and must fail on its own: a dead `/v1/developing` must
-  /// never take the front page down with it.
-  late final FeedRepository _developingRepository;
-  late final PagedList _developing;
+  /// The stream is walked with a page controller rather than a scroll
+  /// controller, because a swipe reader's position is a story index, not a
+  /// pixel offset: "go back to the top" means the first story, not scroll
+  /// position zero.
+  final PageController _controller = PageController();
 
   /// The front page the newsroom last sent, or `null` while the first request
   /// is still in flight. Held as a plain value rather than a [PagedList]
@@ -64,11 +66,6 @@ class _HomePageState extends TabPageState<HomePage> {
     final stored = app.storage.homeDistrict;
     _district = stored.isEmpty ? null : stored;
     _lastLocale = app.locale;
-    _developingRepository = FeedRepository(app, CacheNames.developing);
-    _developing = PagedList((page) => _developingRepository.fetch(
-          load: () => app.api.developing(page: page, pageSize: 6),
-        ));
-    _controller.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
   }
 
@@ -82,17 +79,8 @@ class _HomePageState extends TabPageState<HomePage> {
       });
     }
     await _load();
-    // The rail is a nicety: it is fetched after the page, so a slow newsroom
-    // shows the reader the front page first and fills the rail in after.
-    if (mounted) await _developing.refresh();
     if (!mounted) return;
-    final app = context.read<AppState>();
-    if (_servingCache && _error != null && (_error as ApiException).isOffline) {
-      // The network failed but the cache is showing; leave it up.
-    } else {
-      _servingCache = false;
-    }
-    _lastLocale = app.locale;
+    _lastLocale = context.read<AppState>().locale;
     setState(() => _bootstrapped = true);
   }
 
@@ -107,17 +95,27 @@ class _HomePageState extends TabPageState<HomePage> {
       setState(() {
         _front = front;
         _error = null;
+        // The newsroom was reached, so what is on screen is no longer the
+        // cache's copy. This is the only success path, and it is why a stream
+        // that recovered stops describing itself as offline.
+        _servingCache = false;
       });
       await _persistFront(front);
     } on ApiException catch (exc) {
       if (!mounted) return;
       setState(() => _error = exc);
-      // A cold start that cannot reach the newsroom keeps whatever the cache
-      // has; only a cache that is empty too becomes the retry screen.
+      // A start that cannot reach the newsroom keeps whatever the cache has;
+      // only a cache that is empty too becomes the retry screen.
       if (exc.isOffline || exc.kind == ApiFailure.network) {
         final cached = await _readCachedFront();
         if (cached != null && !cached.isEmpty && mounted) {
-          setState(() => _front = cached);
+          // What is on screen is the cache's copy, so the flag is set where
+          // the copy is put up — the same rule as the fast path in
+          // _bootstrap, rather than a second rule derived from the error.
+          setState(() {
+            _front = cached;
+            _servingCache = true;
+          });
         }
       }
     }
@@ -139,8 +137,11 @@ class _HomePageState extends TabPageState<HomePage> {
         return null;
       }
       return FrontPage.fromJson(decoded);
-    } on Exception {
-      // A corrupt cache is discarded, not shown.
+    } catch (_) {
+      // A corrupt cache is discarded, not shown. The catch is broad on
+      // purpose: a malformed entry fails the JSON or the nested `as` casts
+      // inside `fromJson` with a TypeError, which is not an Exception and so
+      // slips an `on Exception` guard to the reader's screen.
       return null;
     }
   }
@@ -170,16 +171,10 @@ class _HomePageState extends TabPageState<HomePage> {
         'has_more': region.hasMore,
       };
 
-  void _onScroll() {
-    // The front page is one bounded answer, so there is nothing to page in.
-    // The controller stays because scroll-to-top and the developing rail both
-    // depend on it.
-  }
-
   @override
   void jumpToTop() {
     if (_controller.hasClients) {
-      _controller.animateTo(0,
+      _controller.animateToPage(0,
           duration: const Duration(milliseconds: 320), curve: Curves.easeOut);
     }
   }
@@ -191,15 +186,12 @@ class _HomePageState extends TabPageState<HomePage> {
     if (_bootstrapped && _lastLocale != app.locale) {
       _lastLocale = app.locale;
       _load();
-      _developing.refresh();
     }
   }
 
   @override
   void dispose() {
-    _controller.removeListener(_onScroll);
     _controller.dispose();
-    _developing.dispose();
     super.dispose();
   }
 
@@ -220,14 +212,22 @@ class _HomePageState extends TabPageState<HomePage> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     return TabScaffold(
-      // The front page carries its own masthead band, so the app bar shows the
-      // mark alone; the nameplate is not repeated twice above the same page.
+      // The stream's chrome carries the nameplate, the district the reader is
+      // filed against, and the language switch — the three things a reader
+      // needs before the first story, and nothing more. The submission affordance
+      // moves to the end of the stream, so the floating button never lands on
+      // the share action a story screen carries.
       title: app.strings.home,
-      titleWidget: const DashaMonogram(extent: 32),
-      body: AnimatedBuilder(
-        animation: _developing,
-        builder: (context, _) => _body(context, app.strings),
+      titleWidget: const DashaMasthead(
+        size: MastheadSize.compact,
+        onColour: false,
       ),
+      actions: [
+        _districtAction(context, app, app.strings),
+        const LanguageButton(),
+      ],
+      showFab: false,
+      body: _body(context, app.strings),
     );
   }
 
@@ -251,288 +251,109 @@ class _HomePageState extends TabPageState<HomePage> {
         onAction: () => _load(),
       );
     }
-    return RefreshIndicator(
-      onRefresh: () => _load(),
-      child: ListView.builder(
-        controller: _controller,
-        padding: const EdgeInsets.only(bottom: 110),
-        physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: _itemCount,
-        itemBuilder: (context, index) => _item(context, index, strings),
-      ),
+    return _stream(context, front, strings);
+  }
+
+  /// The stream itself: one screen per story, walked vertically.
+  ///
+  /// A region is allowed to be empty, and an empty Near You region is still
+  /// drawn — as a screen that asks the question, one tap from being answered —
+  /// so the reader can see the newsroom was asked, rather than the region
+  /// silently vanishing from the stream.
+  Widget _stream(BuildContext context, FrontPage front, AppStrings strings) {
+    final screens = _screens(front, strings);
+    return Stack(
+      children: [
+        PageView.builder(
+          controller: _controller,
+          scrollDirection: Axis.vertical,
+          itemCount: screens.length,
+          itemBuilder: (context, index) => screens[index],
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          top: 0,
+          child: _Progress(controller: _controller, count: screens.length),
+        ),
+      ],
     );
   }
 
-  // -- the page, slot by slot ------------------------------------------------
-
-  /// The regions actually being drawn, in scan order, with the Near You region
-  /// last among the empty ones so a reader without a district meets the prompt
-  /// rather than a gap mid-page.
-  List<_RegionSpec> get _specs {
-    final strings = context.read<AppState>().strings;
-    final front = _front;
-    if (front == null) return const [];
-    return [
-      _RegionSpec(front.now, strings.regionNow),
-      _RegionSpec(front.near, strings.regionNear,
-          isNear: true, onChooseDistrict: () => _chooseDistrict(
-              context, context.read<AppState>(), strings)),
-      _RegionSpec(front.telangana, strings.regionTelangana),
-      _RegionSpec(front.indiaWorld, strings.regionIndiaWorld),
-    ];
-  }
-
-  /// Slots, in order: the masthead, the developing rail (when it has stories),
-  /// then for each region a header slot followed by one slot per story, then
-  /// the footer. A region with no stories still costs a slot when it has
-  /// something to say — the Near You prompt — and none when it does not.
-  int get _itemCount {
-    final n = _listStories;
-    return 1 +
-        (_developing.items.isNotEmpty ? 1 : 0) +
-        n +
-        1;
-  }
-
-  /// Every story slot across all drawn regions, in order.
-  int get _listStories {
-    var count = 0;
-    for (final spec in _specs) {
-      if (spec.region.isEmpty && !spec.isNear) continue;
-      count += 1; // the header
-      count += spec.region.items.length; // the stories
-      if (spec.isNear && spec.region.isEmpty) count += 1; // the district prompt
-    }
-    return count;
-  }
-
-  Widget _item(BuildContext context, int index, AppStrings strings) {
-    final specs = _specs;
-    final hasRail = _developing.items.isNotEmpty;
-
-    if (index == 0) return _masthead(context, strings);
-    var slot = index - 1;
-    if (hasRail) {
-      if (slot == 0) return _DevelopingRail(stories: _developing.items);
-      slot -= 1;
-    }
-
-    // Walk the regions, consuming slots until the asked one is reached.
-    for (final spec in specs) {
-      final drawsHeader = spec.region.isNotEmpty || spec.isNear;
-      if (!drawsHeader) continue;
-      if (slot == 0) return _RegionHeader(spec: spec);
-      slot -= 1;
-      final stories = spec.region.items;
-      if (slot < stories.length) {
-        return _regionStory(context, spec, stories[slot], slot);
+  /// Every screen in the stream, in scan order: Now, Near You, Telangana, then
+  /// India & World. Stories a region does not have are skipped; a Near You
+  /// region with no district costs one screen, not zero, because the prompt is
+  /// the region's answer.
+  List<Widget> _screens(FrontPage front, AppStrings strings) {
+    final screens = <Widget>[];
+    void region(Region region, String label, {bool isNear = false}) {
+      if (region.items.isEmpty) {
+        if (isNear) {
+          screens.add(_NearYouPrompt(
+            label: label,
+            onChoose: () =>
+                _chooseDistrict(context, context.read<AppState>(), strings),
+          ));
+        }
+        return;
       }
-      slot -= stories.length;
-      if (spec.isNear && spec.region.isEmpty) {
-        if (slot == 0) return _nearPrompt(context, strings);
-        slot -= 1;
-      }
-    }
-    return _footer(context, strings);
-  }
-
-  /// The first story of a region is drawn as the region's standard card —
-  /// headline, summary, thumbnail — and the stories under it are briefs. The
-  /// front page's one lead is the top of Now, so a region is not a wall of
-  /// identical cards but a lead sentence and a run of headlines.
-  Widget _regionStory(
-      BuildContext context, _RegionSpec spec, Story story, int index) {
-    final isLead = identical(spec.region, _front!.now) &&
-        identical(story, _front!.now.items.first);
-    if (isLead) {
-      return _inset(
-        StoryCard(
-          story: story,
-          variant: StoryVariant.lead,
-          heroTag: _photoHeroTag(story),
-          onTap: () => _openStory(story),
-        ),
-        vertical: 8,
-      );
-    }
-    if (index == 0) {
-      return _inset(
-        StoryCard(
-          story: story,
-          variant: StoryVariant.standard,
-          onTap: () => _openStory(story),
-        ),
-        horizontal: 10,
-        vertical: 5,
-      );
-    }
-    return _inset(
-      StoryCard(
-        story: story,
-        variant: StoryVariant.brief,
-        onTap: () => _openStory(story),
-      ),
-      horizontal: 14,
-      vertical: 0,
-    );
-  }
-
-  /// What the reader sees when Near You has no district to file against: not an
-  /// empty region hidden away, but the question itself, one tap from being
-  /// answered.
-  Widget _nearPrompt(BuildContext context, AppStrings strings) {
-    final theme = Theme.of(context);
-    return _inset(
-      Material(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(10),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => _chooseDistrict(context, context.read<AppState>(),
-              strings),
-          child: Container(
-            margin: const EdgeInsets.only(top: 6),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: theme.colorScheme.outlineVariant),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.place_rounded, size: 18,
-                    color: theme.colorScheme.onSurfaceVariant),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        strings.nearNeedsDistrict,
-                        style: theme.textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        strings.nearNeedsDistrictHint,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.chevron_right_rounded,
-                    size: 20, color: theme.colorScheme.onSurfaceVariant),
-              ],
-            ),
+      for (final story in region.items) {
+        screens.add(
+          SwipeStoryView(
+            story: story,
+            regionLabel: label,
+            heroTag: _photoHeroTag(story),
+            onTap: () => _openStory(story),
           ),
-        ),
-      ),
-      horizontal: 14,
-      vertical: 0,
-    );
+        );
+      }
+    }
+
+    region(front.now, strings.regionNow);
+    region(front.near, strings.regionNear, isNear: true);
+    region(front.telangana, strings.regionTelangana);
+    region(front.indiaWorld, strings.regionIndiaWorld);
+
+    // The two end notes differ only in what they tell the reader; the
+    // masthead, the dateline, and the recovery gesture are the same screen.
+    final (endIcon, endText) = _servingCache
+        ? (Icons.wifi_off_rounded, strings.offlineHint)
+        : (Icons.check_circle_outline_rounded, strings.streamEnd);
+    screens.add(_EndNote(
+      icon: endIcon,
+      text: endText,
+      dateLine: editionDateLine(strings),
+      onRefresh: _load,
+    ));
+    return screens;
   }
 
-  Widget _inset(Widget child, {double horizontal = 14, double vertical = 0}) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: horizontal, vertical: vertical),
-      child: child,
-    );
-  }
-
-  /// The hero tag a card's photograph and the story page's photograph share.
-  /// Only the lead and the secondary pair carry one: the briefs have no
-  /// photograph, and the developing rail draws the same stories the feed does,
-  /// so tagging its thumbnails would put two heroes on one screen.
+  /// The hero tag a screen's photograph and the story page's photograph share.
+  /// Exactly one screen is visible at a time, so every story may carry one —
+  /// unlike a scrolling list, where the same story appearing twice would put
+  /// two heroes on one screen.
   String _photoHeroTag(Story story) => 'story-photo-${story.id}';
 
-  /// The nameplate: the paper's name, the edition date, and the district the
-  /// reader has chosen, in one slim band. A front page's masthead is a rule
-  /// and a name, not a banner that costs the page its first screenful; the
-  /// district is one tap away rather than a pill bar of thirty-three.
-  Widget _masthead(BuildContext context, AppStrings strings) {
-    final app = context.watch<AppState>();
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [mastheadRed, mastheadRedDark],
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+  Widget _districtAction(
+      BuildContext context, AppState app, AppStrings strings) {
+    return IconButton(
+      tooltip: strings.district,
+      onPressed: () => _chooseDistrict(context, app, strings),
+      icon: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const DashaMasthead(size: MastheadSize.compact),
-                const SizedBox(height: 3),
-                MastheadFolio(date: _dateLine(strings)),
-              ],
+          const Icon(Icons.place_rounded, size: 17),
+          const SizedBox(width: 4),
+          Text(
+            _district ?? strings.stateEdition,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
-          _districtChip(context, app, strings),
+          const Icon(Icons.keyboard_arrow_down_rounded, size: 16),
         ],
-      ),
-    );
-  }
-
-  /// "శుక్రవారం, 19 సెప్టెంబరు" in Telugu, or the English long form; the
-  /// edition line a front page carries under its name.
-  ///
-  /// Formatted off the English names and translated here rather than handed to
-  /// `intl` with a Telugu locale, because Telugu locale data is not loaded
-  /// unless the app initialises it explicitly. [formatIndianDate] carries the
-  /// same reasoning one step further: even the English data failing to load
-  /// yields a plain date rather than no front page at all.
-  String _dateLine(AppStrings strings) {
-    final english =
-        formatIndianDate('EEEE, d MMMM y', DateTime.now()).split(', ');
-    final weekday = english.first;
-    final rest = english.last.split(' ');
-    if (strings.code != 'te') return english.join(', ');
-    final teWeekday = _teWeekdays[weekday] ?? weekday;
-    final teMonth = _teMonths[rest[1]] ?? rest[1];
-    return '$teWeekday, ${rest[0]} $teMonth ${rest[2]}';
-  }
-
-  Widget _districtChip(
-      BuildContext context, AppState app, AppStrings strings) {
-    final label = _district ?? strings.stateEdition;
-    return Material(
-      color: mastheadChip,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.38)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => _chooseDistrict(context, app, strings),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.place_rounded, size: 14, color: Colors.white),
-              const SizedBox(width: 5),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.keyboard_arrow_down_rounded,
-                  size: 16, color: Colors.white70),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -587,189 +408,75 @@ class _HomePageState extends TabPageState<HomePage> {
       ),
     );
   }
-
-  /// What sits under the last story: the offline note when only the cache is
-  /// being served, and nothing but a rule when the page has ended.
-  Widget _footer(BuildContext context, AppStrings strings) {
-    if (_servingCache) return _offlineBanner(context, strings);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
-      child: Center(
-        child: Container(
-          width: 44,
-          height: 2,
-          decoration: BoxDecoration(
-            color: Theme.of(context).dividerColor,
-            borderRadius: BorderRadius.circular(1),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _offlineBanner(BuildContext context, AppStrings strings) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.tertiaryContainer,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.wifi_off_rounded,
-                size: 16, color: theme.colorScheme.onTertiaryContainer),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                strings.offlineHint,
-                style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onTertiaryContainer,
-                    ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-/// The developing rail: a horizontal strip of the stories the newsroom is
-/// still reporting, under a `కొనసాగుతున్న` header.
+/// The progress bar: one segment per story, capped at a window of fourteen
+/// that scrolls with the reader, read segments filled and the rest hollow.
 ///
-/// It is drawn as a strip because these are stories without endings yet — the
-/// reader scans them sideways, the way a tickertape moves.
-class _DevelopingRail extends StatelessWidget {
-  const _DevelopingRail({required this.stories});
+/// A swipe reader's single hardest question is "how much is left". A scrollbar
+/// answers it in pixels, which a stream of full screens does not have; a count
+/// answers it in arithmetic, which the reader has to do. Segments answer it in
+/// the same gesture the reader is already making.
+class _Progress extends StatefulWidget {
+  const _Progress({required this.controller, required this.count});
 
-  final List<Story> stories;
+  final PageController controller;
+  final int count;
 
   @override
-  Widget build(BuildContext context) {
-    final app = context.watch<AppState>();
-    final strings = app.strings;
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: 4, bottom: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Row(
-              children: [
-                Icon(Icons.autorenew_rounded,
-                    size: 15, color: SemanticColour.developing.inkOf(context)),
-                const SizedBox(width: 6),
-                Text(
-                  strings.developing,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: SemanticColour.developing.inkOf(context),
-                      ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            height: 92,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              itemCount: stories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (context, index) {
-                final story = stories[index];
-                return _RailCard(
-                  story: story,
-                  language: app.locale,
-                  strings: strings,
-                  onTap: () {
-                    context.read<HistoryRecorder>().start(story.id);
-                    Navigator.pushNamed(context, DashaRouter.story,
-                        arguments: StoryDetailArgs(story: story));
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  State<_Progress> createState() => _ProgressState();
 }
 
-class _RailCard extends StatelessWidget {
-  const _RailCard({
-    required this.story,
-    required this.language,
-    required this.strings,
-    required this.onTap,
-  });
+class _ProgressState extends State<_Progress> {
+  int _page = 0;
 
-  final Story story;
-  final String language;
-  final AppStrings strings;
-  final VoidCallback onTap;
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onPage);
+  }
+
+  void _onPage() {
+    final page = widget.controller.page?.round() ?? 0;
+    if (page != _page) setState(() => _page = page);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onPage);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: 190,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(11, 10, 11, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (story.isBreaking)
-                      _Dot(
-                          colour: SemanticColour.breaking,
-                          label: strings.breaking)
-                    else
-                      _Dot(
-                          colour: SemanticColour.developing,
-                          label: strings.developing),
-                  ],
-                ),
-                const SizedBox(height: 6),
+    // A stream is long; the segments stay legible by capping how many are
+    // drawn and scrolling the window with the reader.
+    final long = widget.count > 14;
+    final visible = long ? 14 : widget.count;
+    final start = long
+        ? (_page - visible ~/ 4).clamp(0, widget.count - visible)
+        : 0;
+    return IgnorePointer(
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
+          child: Row(
+            children: [
+              for (var i = 0; i < visible; i++)
                 Expanded(
-                  child: Text(
-                    story.headline(language),
-                    style: storyHeadline(context, story.headline(language),
-                            size: 13, maxLines: 4)
-                        .copyWith(fontWeight: FontWeight.w700),
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                    height: 2.4,
+                    decoration: BoxDecoration(
+                      color: (start + i) <= _page
+                          ? mastheadRed
+                          : Theme.of(context).colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(1.2),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  relativeTime(story.publishedAt, strings: strings),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                ),
-              ],
-            ),
+            ],
           ),
         ),
       ),
@@ -777,141 +484,148 @@ class _RailCard extends StatelessWidget {
   }
 }
 
-class _Dot extends StatelessWidget {
-  const _Dot({required this.colour, required this.label});
+/// What the reader meets when Near You has no district to file against: not an
+/// empty region skipped over, but the question itself, one tap from being
+/// answered. It is a screen in the stream, because a gap the reader swipes
+/// past is not an answer.
+class _NearYouPrompt extends StatelessWidget {
+  const _NearYouPrompt({required this.label, required this.onChoose});
 
-  final SemanticColour colour;
   final String label;
+  final VoidCallback onChoose;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final strings = context.read<AppState>().strings;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: colour.badge,
-        borderRadius: BorderRadius.circular(3),
-      ),
-      child: Text(
-        label.toUpperCase(),
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.6,
-              fontSize: 9.5,
-              height: 1.35,
+      color: theme.colorScheme.surface,
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.7,
+              ),
             ),
+            const SizedBox(height: 12),
+            Icon(Icons.place_rounded,
+                size: 40, color: theme.colorScheme.primary),
+            const SizedBox(height: 12),
+            Text(
+              strings.nearNeedsDistrict,
+              style: theme.textTheme.headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              strings.nearNeedsDistrictHint,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                onChoose();
+              },
+              icon: const Icon(Icons.place_rounded, size: 17),
+              label: Text(strings.chooseDistrict),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Telugu weekday names, keyed off the English `intl` produces.
-const Map<String, String> _teWeekdays = {
-  'Monday': 'సోమవారం',
-  'Tuesday': 'మంగళవారం',
-  'Wednesday': 'బుధవారం',
-  'Thursday': 'గురువారం',
-  'Friday': 'శుక్రవారం',
-  'Saturday': 'శనివారం',
-  'Sunday': 'ఆదివారం',
-};
-
-/// Telugu month names, in the same keying scheme.
-const Map<String, String> _teMonths = {
-  'January': 'జనవరి',
-  'February': 'ఫిబ్రవరి',
-  'March': 'మార్చి',
-  'April': 'ఏప్రిల్',
-  'May': 'మే',
-  'June': 'జూన్',
-  'July': 'జూలై',
-  'August': 'ఆగస్టు',
-  'September': 'సెప్టెంబరు',
-  'October': 'అక్టోబరు',
-  'November': 'నవంబరు',
-  'December': 'డిసెంబరు',
-};
-
-/// One region of the front page, as the page draws it.
+/// The screen after the last story: the offline note when the stream is being
+/// served from cache, a plain end mark when the newsroom was reached, and the
+/// edition's dateline under both.
 ///
-/// A region is its stories plus the label the reader scans the page by. The
-/// Near You region is special only in that an empty one is still drawn — it
-/// carries a prompt rather than a gap — so the reader can see that the
-/// question was asked and unanswered, instead of the region quietly
-/// disappearing.
-class _RegionSpec {
-  const _RegionSpec(this.region, this.label,
-      {this.isNear = false, this.onChooseDistrict});
+/// It is also where the tip line and the refresh live. A floating button on
+/// every screen of a stream lands on the share action a story carries, so the
+/// submission affordance moves here — where the reader has just run out of news
+/// and is most likely to have something to say. The refresh is here for the
+/// same reason: a stream has no scroll position to pull against, so the reader
+/// who has been on the tab for an hour and wants the latest bulletin finds the
+/// gesture at the end of the one they have, not by leaving the tab.
+class _EndNote extends StatelessWidget {
+  const _EndNote({
+    required this.icon,
+    required this.text,
+    this.dateLine,
+    required this.onRefresh,
+  });
 
-  final Region region;
-  final String label;
-  final bool isNear;
+  final IconData icon;
+  final String text;
 
-  /// Shown by the Near You prompt when the region is empty. Not a callback on
-  /// the header itself: the header's job is to name the region, not to act.
-  final VoidCallback? onChooseDistrict;
-}
+  /// The edition line, when the stream has one to close with.
+  final String? dateLine;
 
-/// A region's name and the count the newsroom vouches for.
-///
-/// The count is the stories that exist, not the stories drawn: a region that
-/// holds twelve and shows six says twelve, which is the honest answer to "is
-/// there more here". A region that holds nothing shows no count at all, because
-/// a zero would read as a claim that nothing is happening when what is true is
-/// that the newsroom has not filed it.
-class _RegionHeader extends StatelessWidget {
-  const _RegionHeader({required this.spec});
-
-  final _RegionSpec spec;
+  /// Re-fetches the front page. Offered because the stream has no other
+  /// gesture that reaches the newsroom again.
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final region = spec.region;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
-        children: [
-          Container(
-            width: 3,
-            height: 12,
-            decoration: BoxDecoration(
-              color: spec.isNear
-                  ? SemanticColour.developing.inkOf(context)
-                  : mastheadRed,
-              borderRadius: BorderRadius.circular(1.5),
-            ),
-          ),
-          const SizedBox(width: 7),
-          Text(
-            spec.label,
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.1,
-            ),
-          ),
-          if (region.total > 0) ...[
-            const SizedBox(width: 7),
+    final strings = context.read<AppState>().strings;
+    return Container(
+      color: theme.colorScheme.surface,
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 36, color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(height: 12),
             Text(
-              '${region.total}',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-          if (region.hasMore) ...[
-            const SizedBox(width: 6),
-            Text(
-              context.read<AppState>().strings.latest,
-              style: theme.textTheme.labelSmall?.copyWith(
+              text,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+            if (dateLine != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                dateLine!,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            const SizedBox(height: 28),
+            const DashaMasthead(size: MastheadSize.compact, onColour: false),
+            const SizedBox(height: 22),
+            OutlinedButton.icon(
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                onRefresh();
+              },
+              icon: const Icon(Icons.refresh_rounded, size: 17),
+              label: Text(strings.refreshStream),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                Navigator.pushNamed(context, DashaRouter.submitTip);
+              },
+              icon: const Icon(Icons.campaign_outlined, size: 17),
+              label: Text(strings.submitTip),
+            ),
           ],
-        ],
+        ),
       ),
     );
   }

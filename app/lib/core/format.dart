@@ -93,3 +93,53 @@ bool hasTeluguScript(String? text) {
   }
   return false;
 }
+
+/// "శుక్రవారం, 19 సెప్టెంబరు" in Telugu, or the English long form: the edition
+/// line a front page carries under its name.
+///
+/// Formatted off the English names and translated here rather than handed to
+/// `intl` with a Telugu locale, because Telugu locale data is not loaded
+/// unless the app initialises it explicitly. [formatIndianDate] carries the
+/// same reasoning one step further: even the English data failing to load
+/// yields a plain date rather than no front page at all.
+String editionDateLine(AppStrings strings, {DateTime? when}) {
+  final english =
+      formatIndianDate('EEEE, d MMMM y', when ?? DateTime.now()).split(', ');
+  final weekday = english.first;
+  final rest = english.last.split(' ');
+  if (strings.code != 'te') return english.join(', ');
+  // The fallback path in [formatIndianDate] — intl failing to load — yields
+  // 'd M y' with no month name to translate, in which case the day and year
+  // are still right and only the weekday lookup is pointless.
+  if (rest.length < 3) return english.join(', ');
+  final teWeekday = _teWeekdays[weekday] ?? weekday;
+  final teMonth = _teMonths[rest[1]] ?? rest[1];
+  return '$teWeekday, ${rest[0]} $teMonth ${rest[2]}';
+}
+
+/// Telugu weekday names, keyed off the English `intl` produces.
+const Map<String, String> _teWeekdays = {
+  'Monday': 'సోమవారం',
+  'Tuesday': 'మంగళవారం',
+  'Wednesday': 'బుధవారం',
+  'Thursday': 'గురువారం',
+  'Friday': 'శుక్రవారం',
+  'Saturday': 'శనివారం',
+  'Sunday': 'ఆదివారం',
+};
+
+/// Telugu month names, in the same keying scheme.
+const Map<String, String> _teMonths = {
+  'January': 'జనవరి',
+  'February': 'ఫిబ్రవరి',
+  'March': 'మార్చి',
+  'April': 'ఏప్రిల్',
+  'May': 'మే',
+  'June': 'జూన్',
+  'July': 'జూలై',
+  'August': 'ఆగస్టు',
+  'September': 'సెప్టెంబరు',
+  'October': 'అక్టోబరు',
+  'November': 'నవంబరు',
+  'December': 'డిసెంబరు',
+};

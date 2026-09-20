@@ -119,17 +119,23 @@ class TabScaffold extends StatelessWidget {
     this.actions,
     required this.body,
     this.bottom,
+    this.showFab = true,
   });
 
   final String title;
 
   /// Draws in place of the text title. Used by the front page, which carries
-  /// its own masthead band and so shows only the mark in the chrome.
+  /// its own masthead and so shows the nameplate in the chrome.
   final Widget? titleWidget;
 
   final List<Widget>? actions;
   final Widget body;
   final PreferredSizeWidget? bottom;
+
+  /// Whether the submit-a-tip button floats over the page. It does on every
+  /// page but the stream: there it would sit on the share action every story
+  /// screen carries, so the stream puts the tip line at its end instead.
+  final bool showFab;
 
   @override
   Widget build(BuildContext context) {
@@ -146,11 +152,14 @@ class TabScaffold extends StatelessWidget {
         bottom: bottom,
       ),
       body: body,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.pushNamed(context, DashaRouter.submitTip),
-        icon: const Icon(Icons.campaign_outlined),
-        label: Text(app.strings.submitTip),
-      ),
+      floatingActionButton: showFab
+          ? FloatingActionButton.extended(
+              onPressed: () =>
+                  Navigator.pushNamed(context, DashaRouter.submitTip),
+              icon: const Icon(Icons.campaign_outlined),
+              label: Text(app.strings.submitTip),
+            )
+          : null,
     );
   }
 }
