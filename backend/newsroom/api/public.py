@@ -10,7 +10,13 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from newsroom.api.schemas import DeviceIn, DeviceOut, Page, SubmissionIn, SubmissionOut
-from newsroom.api.views import paginate, to_story_card, to_story_detail
+from newsroom.api.views import (
+    paginate,
+    serves_language,
+    story_language,
+    to_story_card,
+    to_story_detail,
+)
 from newsroom.db.engine import get_db
 from newsroom.db.models import Bookmark, Device, ReadingHistory, Story, Submission
 from newsroom.domain.geo import ALL_DISTRICTS
@@ -34,25 +40,41 @@ def feed(request: Request, db: Session = Depends(get_db),
          language: str = Query("te", pattern="^(te|ten|en)$"),
          section: Optional[str] = None, district: Optional[str] = None,
          page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=50)) -> Any:
-    """The personalised home feed, most important first."""
+    """The personalised home feed, most important first.
+
+    `language` is a promise, not a hint: a story is served in that language only
+    if it has a headline actually written in it. A story whose Telugu column
+    holds English wire copy is not a Telugu story, whatever the column says, so
+    it stays out of the Telugu feed rather than being served as a translation it
+    never had. It is still reachable in a language it really is in.
+    """
     query = _published_query()
     if section and section in ALL_SLUGS:
         query = query.where(Story.section == section)
     if district:
         query = query.where(Story.district == district)
 
-    total = db.execute(
-        select(func.count()).select_from(query.subquery())
-    ).scalar_one()
-
-    rows = db.execute(
+    # Coverage is a property of the rendered text, not of any stored column, so
+    # it cannot be expressed in the where clause. The candidate set is bounded
+    # and small (the published room is hundreds, not millions), which makes a
+    # Python pass cheaper than a denormalised coverage column maintained on
+    # every write -- and it stays correct the moment a sweep rewrites a field,
+    # which a stored flag would not.
+    candidates = db.execute(
         query.order_by(Story.is_breaking.desc(), Story.importance.desc(),
                        Story.published_at.desc())
-        .offset((page - 1) * page_size).limit(page_size)
+        .limit(_FEED_LANGUAGE_CANDIDATES)
     ).scalars().all()
 
-    items = [to_story_card(db, story, language=language).model_dump() for story in rows]
-    return paginate(items, total, page, page_size)
+    rendered = {story.id: story_language(story) for story in candidates}
+    served = [story for story in candidates
+              if serves_language(rendered[story.id], language)]
+
+    start = (page - 1) * page_size
+    rows = served[start:start + page_size]
+    items = [to_story_card(db, story, language=language, rendered=rendered[story.id])
+             .model_dump() for story in rows]
+    return paginate(items, len(served), page, page_size)
 
 
 @router.get("/breaking", response_model=Page, dependencies=[Depends(rate_limit)])
@@ -134,6 +156,13 @@ def search(request: Request, db: Session = Depends(get_db),
     matched = [rows[index] for index, score in ranked if score > 0.08][:limit]
     items = [to_story_card(db, story, language=language).model_dump() for story in matched]
     return paginate(items, len(items), 1, limit)
+
+
+# The widest window the feed's language pass will read. Generous on purpose:
+# withholding a wrong-script story shrinks the served set, and a reader paging
+# deep must still reach the stories further down the importance order rather
+# than hitting an artificial early end.
+_FEED_LANGUAGE_CANDIDATES = 400
 
 
 # ---------------------------------------------------------------------------

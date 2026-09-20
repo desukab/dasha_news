@@ -112,6 +112,90 @@ def test_feed_rejects_invalid_page(client):
     assert client.get("/v1/feed?page=0").status_code == 422
 
 
+# ---------------------------------------------------------------------------
+# Language truth: a column means its language on the wire
+# ---------------------------------------------------------------------------
+
+# English wire copy reaching the Telugu feed is the defect these pin down. The
+# pipeline's writer gate stops it at composition time; these check the last
+# line of defence, because stories published before that gate landed still
+# carry the wrong script in a live column and a sweep does not re-render them.
+
+def test_feed_withholds_a_headline_written_in_the_wrong_script(session, client):
+    # A story whose Telugu column holds an English sentence.
+    _story(session, headline_te="Ministers review the flood relief camps",
+           headline_en="Ministers review the flood relief camps")
+    items = client.get("/v1/feed?language=te").json()["items"]
+    assert items == []
+    # The story is not lost: it is served in the language it is actually in.
+    english = client.get("/v1/feed?language=en").json()["items"]
+    assert len(english) == 1
+    assert english[0]["headline_en"].startswith("Ministers review")
+
+
+def test_card_withholds_a_lead_and_body_in_the_wrong_script(session, client):
+    _story(session, headline_te="నిజమైన తెలుగు శీర్షిక",
+           lead_te="This lead is English, not Telugu.",
+           body_te="This body is English, not Telugu either.")
+    body = client.get("/v1/feed").json()["items"][0]
+    # The Telugu headline is genuine, so the story is served as Telugu; its
+    # lead and body are not, so they are withheld rather than sent as
+    # translations the story does not have.
+    assert body["headline_te"] == "నిజమైన తెలుగు శీర్షిక"
+    assert body["lead_te"] is None
+
+
+def test_detail_withholds_a_body_in_the_wrong_script(session, client):
+    story = _story(session, headline_te="నిజమైన తెలుగు శీర్షిక",
+                   body_te="This body is English, not Telugu.")
+    body = client.get(f"/v1/story/{story.id}").json()
+    assert body["headline_te"] == "నిజమైన తెలుగు శీర్షిక"
+    assert body["body_te"] is None
+
+
+def test_feed_serves_tenglish_only_when_the_line_is_roman_telugu(session, client):
+    # Roman Telugu keeps Telugu words' open syllables; an English sentence does
+    # not, which is what stops English copy being served as Tenglish.
+    _story(session, headline_te="తెలుగు శీర్షిక",
+           headline_ten="ministers review the flood relief camps today")
+    assert client.get("/v1/feed?language=ten").json()["items"] == []
+
+
+def test_feed_language_filter_keeps_the_story_in_every_language_it_is_in(
+        session, client):
+    _story(session, headline_te="తెలుగు శీర్షిక",
+           headline_en="An English headline")
+    for language, expected in (("te", 1), ("en", 1), ("ten", 0)):
+        body = client.get(f"/v1/feed?language={language}").json()
+        assert body["total"] == expected, language
+
+
+def test_feed_language_filter_respects_the_section_and_district_window(
+        session, client):
+    _story(session, section="sports", district="Warangal",
+           headline_te="వరంగల్ క్రికెట్ శీర్షిక")
+    _story(session, section="politics", district="Hyderabad",
+           headline_te="హైదరాబాద్ రాజకీయాల శీర్షిక")
+    items = client.get(
+        "/v1/feed?language=te&section=sports").json()["items"]
+    assert len(items) == 1
+    assert items[0]["district"] == "Warangal"
+
+
+def test_feed_language_filter_paginates_the_served_set(session, client):
+    for _ in range(5):
+        _story(session, headline_te="తెలుగు శీర్షిక")
+    for _ in range(3):
+        _story(session, headline_te="An English headline only")
+    # Three stories are withheld, so the Telugu feed's total is five and its
+    # pages are numbered over the served set, not the raw one.
+    first = client.get("/v1/feed?language=te&page=1&page_size=2").json()
+    assert first["total"] == 5
+    assert first["has_more"] is True
+    third = client.get("/v1/feed?language=te&page=3&page_size=2").json()
+    assert third["has_more"] is False
+
+
 def test_breaking_feed(session, client):
     _story(session, is_breaking=True, status="breaking")
     _story(session, is_breaking=False)

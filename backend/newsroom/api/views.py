@@ -21,6 +21,7 @@ from newsroom.api.schemas import (
 from newsroom.config import get_settings
 from newsroom.domain.evidence import EvidenceLevel, story_status_label_te
 from newsroom.domain.sections import BY_SLUG
+from newsroom.nlp.language import validate_language
 
 
 def section_labels(slug: Optional[str]) -> Dict[str, Optional[str]]:
@@ -28,6 +29,64 @@ def section_labels(slug: Optional[str]) -> Dict[str, Optional[str]]:
     if not section:
         return {"te": slug, "en": slug}
     return {"te": section.te, "en": section.en}
+
+
+# ---------------------------------------------------------------------------
+# Language truth at the wire
+# ---------------------------------------------------------------------------
+
+# A column name is a promise: headline_te is Telugu, headline_ten is Telugu in
+# Latin script, headline_en is English. The pipeline's writer gate enforces
+# that when it composes a story, but two paths still let a wrong-script value
+# reach the wire:
+#
+#  * stories published before the gate landed were never remediated, and a
+#    sweep does not re-render a story that has no new article behind it;
+#  * the gate clears a failed field, but a story already published keeps its
+#    status, so the stale value sits in a live row until something rewrites it.
+#
+# Withholding is the last line of defence and it is cheap: it is what makes a
+# column mean its language to every client, including one reading a stale
+# offline cache. The text is never rewritten -- the field is dropped, so the
+# reader's fallback chain shows the best language the story really has and the
+# story stops counting as translated.
+_LANGUAGE_FIELDS = (("headline", "headline"), ("lead", "lead"), ("body", "body"))
+
+
+def _renderable(value: Optional[str], language: str) -> Optional[str]:
+    """`value` if it is genuinely written in `language`, else None."""
+    if value is None:
+        return None
+    text = str(value)
+    if not text.strip():
+        return None
+    return text if validate_language(text, language).ok else None
+
+
+def story_language(story) -> Dict[str, Dict[str, Optional[str]]]:
+    """Every language field this story may actually be served in.
+
+    One pass over the nine columns, so a card and a detail of the same story
+    can never disagree about what the story is in. Callers that need to know
+    only whether a language is served should read [serves_language] from this
+    set rather than re-walking the columns.
+    """
+    languages: Dict[str, Dict[str, Optional[str]]] = {}
+    for language in ("te", "ten", "en"):
+        gated = {
+            field: _renderable(getattr(story, f"{field}_{language}"), language)
+            for field, _ in _LANGUAGE_FIELDS
+        }
+        languages[language] = gated
+    return languages
+
+
+def serves_language(coverage: Dict[str, Dict[str, Optional[str]]],
+                    language: str) -> bool:
+    """Does the reader asking for `language` get a headline in it?"""
+    fields = coverage.get(language) or {}
+    headline = fields.get("headline")
+    return headline is not None and headline.strip() != ""
 
 
 def _absolute(path: Optional[str]) -> Optional[str]:
@@ -53,16 +112,22 @@ def _audio_url(session: Session, story_id: int) -> Optional[str]:
     return f"{get_settings().public_base_url.rstrip('/')}/media/audio/{filename}"
 
 
-def to_story_card(session: Session, story, *, language: str = "te") -> StoryCard:
+def to_story_card(session: Session, story, *, language: str = "te",
+                  rendered: Optional[Dict[str, Dict[str, Optional[str]]]] = None
+                  ) -> StoryCard:
     labels = section_labels(story.section)
+    # Computed once by a caller that needs the coverage set for anything else
+    # (the feed's language filter, or a detail's body fields), so a card and a
+    # detail of one story can never disagree about what the story is in.
+    rendered = rendered or story_language(story)
     return StoryCard(
         id=story.id,
         cluster_id=story.cluster_id,
         slug=story.slug,
-        headline_te=story.headline_te,
-        headline_ten=story.headline_ten,
-        headline_en=story.headline_en,
-        lead_te=story.lead_te,
+        headline_te=rendered["te"]["headline"],
+        headline_ten=rendered["ten"]["headline"],
+        headline_en=rendered["en"]["headline"],
+        lead_te=rendered["te"]["lead"],
         section=story.section,
         section_label_te=labels["te"],
         section_label_en=labels["en"],
@@ -90,7 +155,8 @@ def to_story_card(session: Session, story, *, language: str = "te") -> StoryCard
 def to_story_detail(session: Session, story) -> StoryDetail:
     from newsroom.db.models import Fact, StorySource, StoryUpdate, Article, Source
 
-    card = to_story_card(session, story)
+    rendered = story_language(story)
+    card = to_story_card(session, story, rendered=rendered)
 
     facts = session.execute(
         select(Fact).where(Fact.story_id == story.id, Fact.status == "active")
@@ -140,9 +206,9 @@ def to_story_detail(session: Session, story) -> StoryDetail:
 
     detail = StoryDetail(
         **card.model_dump(),
-        body_te=story.body_te,
-        body_ten=story.body_ten,
-        body_en=story.body_en,
+        body_te=rendered["te"]["body"],
+        body_ten=rendered["ten"]["body"],
+        body_en=rendered["en"]["body"],
         facts=fact_views,
         sources=source_views,
         updates=[

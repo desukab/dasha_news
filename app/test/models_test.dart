@@ -49,6 +49,57 @@ void main() {
       expect(story.body('te'), isEmpty);
     });
 
+    // Stories published before the newsroom's script gate landed still carry
+    // English wire copy in the Telugu column, and an offline cache can hold a
+    // copy from before the fix. Neither may reach the reader as Telugu.
+    test('never serves the wrong script as the asked language', () {
+      final story = Story(
+        id: 3,
+        clusterId: 'c',
+        slug: 'english-in-the-telugu-column',
+        section: 'telangana',
+        status: 'published',
+        importance: 0.5,
+        evidenceScore: 0.5,
+        numSources: 1,
+        isBreaking: false,
+        isDeveloping: false,
+        headlineTe: 'Ministers review the flood relief camps',
+        headlineEn: 'Ministers review the flood relief camps',
+      );
+
+      // English text is not a Telugu headline, however the column is named.
+      expect(story.headline('te'), 'Ministers review the flood relief camps');
+      expect(story.headline('en'), 'Ministers review the flood relief camps');
+      // The reader is told the truth about which language that is.
+      expect(story.headlineIsTelugu('te'), isFalse);
+    });
+
+    test('prefers a genuine Telugu headline over a stale English one', () {
+      final story = _story(
+        headlineTe: 'నిజమైన తెలుగు శీర్షిక',
+        headlineTen: 'nijamaina telugu sIrshika',
+        headlineEn: 'A real English headline',
+      );
+      expect(story.headline('te'), 'నిజమైన తెలుగు శీర్షిక');
+      expect(story.headlineIsTelugu('te'), isTrue);
+      expect(story.headline('en'), 'A real English headline');
+      // Roman Telugu is Latin script; a Telugu-script line is the wrong thing
+      // for the Tenglish column.
+      expect(story.headline('ten'), 'nijamaina telugu sIrshika');
+    });
+
+    test('an English lead is not served as the story lead', () {
+      final story = _story(
+        headlineTe: 'తెలుగు శీర్షిక',
+        leadTe: 'This lead is English, not Telugu.',
+        bodyTe: 'ఇది నిజమైన తెలుగు వాచకం. రెండవ వాక్యం.',
+      );
+      // The lead falls back to the Telugu body's own first sentence rather
+      // than showing an English line under a Telugu headline.
+      expect(story.lead, 'ఇది నిజమైన తెలుగు వాచకం');
+    });
+
     test('place resolves to the deepest level available', () {
       expect(_story(mandal: 'Hayatnagar', district: 'Hyderabad').place,
           'Hayatnagar');
@@ -177,6 +228,11 @@ void main() {
 
 Story _story({
   int numSources = 1,
+  String? headlineTe,
+  String? headlineTen,
+  String? headlineEn,
+  String? leadTe,
+  String? bodyTe,
   String? mandal,
   String? district,
   String? state,
@@ -193,6 +249,11 @@ Story _story({
     numSources: numSources,
     isBreaking: false,
     isDeveloping: false,
+    headlineTe: headlineTe,
+    headlineTen: headlineTen,
+    headlineEn: headlineEn,
+    leadTe: leadTe,
+    bodyTe: bodyTe,
     mandal: mandal,
     district: district,
     state: state,

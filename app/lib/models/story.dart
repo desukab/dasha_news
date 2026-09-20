@@ -79,45 +79,71 @@ class Story {
   final int version;
   final double confidence;
 
-  /// The headline the reader asked for, falling back through the other
-  /// languages rather than showing an empty string.
+  /// The headline the reader asked for, in a language it is actually written
+  /// in.
+  ///
+  /// A column name is not a guarantee: stories published before the
+  /// newsroom's script gate landed still carry English wire copy in the
+  /// Telugu column, and an offline cache can hold a copy from before the fix.
+  /// So the field is only used when its script matches the language the reader
+  /// asked for; otherwise the story falls back to a language it really is in,
+  /// and the reader is never shown English under a Telugu label.
   String headline(String language) {
+    final chosen = _languageField(language, headlineTe, headlineTen, headlineEn);
+    if (chosen != null) return chosen;
+    // None of the columns holds the asked-for language. Take whichever of the
+    // others is genuinely written in something, preferring Telugu, then
+    // Tenglish, then English -- a real headline in the wrong language beats a
+    // blank line, and the slug is the last resort.
+    for (final candidate in [headlineTe, headlineTen, headlineEn]) {
+      if (candidate != null && candidate.trim().isNotEmpty) {
+        return candidate.trim();
+      }
+    }
+    return slug.trim();
+  }
+
+  /// `value` for [language], but only when its script agrees.
+  String? _languageField(
+      String language, String? te, String? ten, String? en) {
     switch (language) {
       case 'ten':
-        return headlineTen?.trim().isNotEmpty == true
-            ? headlineTen!.trim()
-            : _fallbackHeadline;
+        // Roman Telugu is Latin script, so the Telugu-script test cannot judge
+        // it. The newsroom's shape check already withheld an English line from
+        // this column; here a Telugu-script line is the only clear wrong.
+        return (ten != null && ten.trim().isNotEmpty && !hasTeluguScript(ten))
+            ? ten.trim()
+            : null;
       case 'en':
-        return headlineEn?.trim().isNotEmpty == true
-            ? headlineEn!.trim()
-            : _fallbackHeadline;
+        return (en != null && en.trim().isNotEmpty && !hasTeluguScript(en))
+            ? en.trim()
+            : null;
       default:
-        return headlineTe?.trim().isNotEmpty == true
-            ? headlineTe!.trim()
-            : _fallbackHeadline;
+        return (te != null && te.trim().isNotEmpty && hasTeluguScript(te))
+            ? te.trim()
+            : null;
     }
   }
 
-  String get _fallbackHeadline =>
-      (headlineTe ?? headlineTen ?? headlineEn ?? slug).trim();
-
-  /// Body for the chosen language, with the same fallback ordering.
+  /// Body for the chosen language, withheld the same way as the headline.
   String body(String language) {
-    switch (language) {
-      case 'ten':
-        return (bodyTen?.isNotEmpty == true ? bodyTen : _fallbackBody) ?? '';
-      case 'en':
-        return (bodyEn?.isNotEmpty == true ? bodyEn : _fallbackBody) ?? '';
-      default:
-        return (bodyTe?.isNotEmpty == true ? bodyTe : _fallbackBody) ?? '';
+    final chosen = _languageField(language, bodyTe, bodyTen, bodyEn);
+    if (chosen != null) return chosen;
+    for (final candidate in [bodyTe, bodyTen, bodyEn]) {
+      if (candidate != null && candidate.trim().isNotEmpty) return candidate;
     }
+    return '';
   }
 
-  String? get _fallbackBody => bodyTe ?? bodyTen ?? bodyEn;
-
-  String get lead => leadTe?.isNotEmpty == true
-      ? leadTe!
-      : body('te').split(RegExp(r'[।.]'))[0];
+  /// The story's lead, preferring a Telugu one that really is Telugu.
+  String get lead {
+    final te = leadTe;
+    if (te != null && te.trim().isNotEmpty && hasTeluguScript(te)) return te;
+    final firstSentence = body('te').split(RegExp(r'[।.]'))[0];
+    return firstSentence.trim().isNotEmpty
+        ? firstSentence.trim()
+        : (leadTe ?? '').trim();
+  }
 
   /// The photograph, on the origin the reader's phone can actually reach.
   ///
