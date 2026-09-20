@@ -9,13 +9,17 @@ import '../core/theme.dart';
 import '../models/story.dart';
 import '../state/app_state.dart';
 
-/// One story in a list, drawn the way its position on the page demands.
+/// One story in a list, drawn at the density its position on the page demands.
 ///
-/// A front page is not a uniform grid of cards: the lead story carries the
-/// photograph and the summary, and the briefs underneath it are dense type
-/// separated by rules. The card keeps the editorial contract either way — what
-/// the claim's evidence level is, how many outlets reported it, and whether
-/// they agree — and draws only as much of it as the variant has room for.
+/// A front page is not a uniform grid of equal cards: it is a lead, a few
+/// stories with summaries, and a run of briefs. Three densities are enough to
+/// express that, and the page picks one per slot.
+///
+/// What the card does *not* draw is deliberate. Evidence levels, confidence
+/// scores, source counts and conflict flags are the desk's machinery; they
+/// belong to the editor's tool, not to a reader scanning a page. The reader
+/// gets the headline, the summary, where it happened, when, and the outlets
+/// behind it on the story page.
 class StoryCard extends StatelessWidget {
   const StoryCard({
     super.key,
@@ -34,7 +38,7 @@ class StoryCard extends StatelessWidget {
   /// Kept for the callers that have not been moved to [variant] yet.
   final bool showImage;
 
-  /// Kept for the same callers: `compact: true` is `StoryVariant.brief`.
+  /// Kept for the same callers: `compact: true` is [StoryVariant.brief].
   final bool compact;
 
   /// How the card is drawn. When null it is derived from [compact], so an
@@ -47,7 +51,8 @@ class StoryCard extends StatelessWidget {
   /// only from a list where this story appears exactly once.
   final String? heroTag;
 
-  StoryVariant get _variant => variant ?? (compact ? StoryVariant.brief : StoryVariant.standard);
+  StoryVariant get _variant =>
+      variant ?? (compact ? StoryVariant.brief : StoryVariant.standard);
 
   @override
   Widget build(BuildContext context) {
@@ -55,23 +60,11 @@ class StoryCard extends StatelessWidget {
     final strings = app.strings;
     final language = app.locale;
     final headline = story.headline(language);
-    final v = _variant;
-
-    switch (v) {
+    switch (_variant) {
       case StoryVariant.lead:
         return _LeadCard(
           story: story,
           headline: headline,
-          language: language,
-          strings: strings,
-          onTap: onTap,
-          heroTag: heroTag,
-        );
-      case StoryVariant.secondary:
-        return _SecondaryCard(
-          story: story,
-          headline: headline,
-          language: language,
           strings: strings,
           onTap: onTap,
           heroTag: heroTag,
@@ -80,7 +73,6 @@ class StoryCard extends StatelessWidget {
         return _BriefCard(
           story: story,
           headline: headline,
-          language: language,
           strings: strings,
           onTap: onTap,
         );
@@ -88,7 +80,6 @@ class StoryCard extends StatelessWidget {
         return _StandardCard(
           story: story,
           headline: headline,
-          language: language,
           strings: strings,
           showImage: showImage,
           trailing: trailing,
@@ -103,15 +94,12 @@ enum StoryVariant {
   /// The lead: full width, photograph above the type, summary paragraph.
   lead,
 
-  /// A secondary story: column-width, square photograph, three-line headline.
-  secondary,
-
-  /// A brief: type only, separated by a rule, no card and no photograph.
-  brief,
-
-  /// The pre-redesign card, used by screens that have not been laid out as a
-  /// front page yet.
+  /// A standard story: headline, a short summary, and a meta row, with a small
+  /// thumbnail when the desk has a photograph. Most of the page is these.
   standard,
+
+  /// A brief: headline and meta only, separated by a rule.
+  brief,
 }
 
 // -- shared pieces -----------------------------------------------------------
@@ -155,7 +143,7 @@ class _Badge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: colour.badge,
         borderRadius: BorderRadius.circular(3),
@@ -165,93 +153,18 @@ class _Badge extends StatelessWidget {
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w800,
-              letterSpacing: 0.6,
-              fontSize: 10,
-              height: 1.35,
+              letterSpacing: 0.5,
+              fontSize: 9.5,
+              height: 1.3,
             ),
       ),
     );
   }
 }
 
-/// The strongest of the story's claims, absent a fact list (the feed endpoint
-/// omits facts), is not drawn as a guess: the chip is simply left out.
-Widget? _evidenceChip(
-  BuildContext context,
-  Story story,
-  AppStrings strings,
-  String language,
-) {
-  final ranked = [...story.facts]..sort((a, b) => a.rank.compareTo(b.rank));
-  final strongest = ranked.isEmpty ? null : ranked.first;
-  if (strongest == null) return null;
-  final level = strongest.evidenceLevel;
-  if (level.isEmpty) return null;
-  return _chip(
-    context,
-    icon: Icons.shield_outlined,
-    label: strongest.label(language),
-    colour: evidenceColour(level),
-  );
-}
-
-Widget _sourcesChip(
-  BuildContext context,
-  Story story,
-  AppStrings strings,
-) {
-  return _chip(
-    context,
-    icon: story.isCorroborated ? Icons.verified_rounded : Icons.info_outline,
-    label: '${story.numSources} ${strings.sources}',
-    colour:
-        story.isCorroborated ? SemanticColour.fact : SemanticColour.claim,
-    filled: story.isCorroborated,
-  );
-}
-
-/// A tonal tag: the ink at full strength for the label and icon, a faint tint
-/// of the same ink for the ground.
-///
-/// The ground is deliberately *not* a solid fill. A solid mid-tone would need
-/// white type to stay legible, and white type on a mid-tone is the one
-/// combination the palette cannot serve in both brightnesses — so the ink
-/// stays the ink and the ground stays out of its way.
-Widget _chip(
-  BuildContext context, {
-  required IconData icon,
-  required String label,
-  required SemanticColour colour,
-  bool filled = false,
-}) {
-  final theme = Theme.of(context);
-  final ink = colour.inkOf(context);
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-    decoration: BoxDecoration(
-      color: ink.withValues(alpha: filled ? 0.16 : 0.09),
-      borderRadius: BorderRadius.circular(6),
-      border: Border.all(color: ink.withValues(alpha: filled ? 0.45 : 0.24)),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 12, color: ink),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: ink,
-            fontWeight: FontWeight.w700,
-            fontSize: 10.5,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-/// Section label and relative time, the way a folio line reads.
+/// Where and when, the way a folio line reads. Shown on one line because a
+/// story card has to earn its height, and two meta rows is what makes a feed
+/// feel like a form.
 class _Folio extends StatelessWidget {
   const _Folio({required this.story, required this.strings, this.brief = false});
 
@@ -265,20 +178,27 @@ class _Folio extends StatelessWidget {
     final muted = theme.colorScheme.onSurfaceVariant;
     final label = story.sectionLabel(context.read<AppState>().locale);
     final time = relativeTime(story.publishedAt, strings: strings);
-    return RichText(
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      text: TextSpan(
+    // A state alone ("Telangana") is not a location a reader learns anything
+    // from on a Telangana front page; only a district or a mandal is.
+    final place = story.mandal ?? story.district;
+    return Text.rich(
+      TextSpan(
         children: [
           TextSpan(
             text: label.toUpperCase(),
             style: theme.textTheme.labelSmall?.copyWith(
-              letterSpacing: 0.9,
+              letterSpacing: 0.8,
               color: brief ? theme.colorScheme.primary : muted,
               fontWeight: FontWeight.w800,
-              fontSize: brief ? 10 : null,
+              fontSize: 9.5,
             ),
           ),
+          if (place != null && place.isNotEmpty) ...[
+            TextSpan(
+              text: ' · $place',
+              style: theme.textTheme.labelSmall?.copyWith(color: muted),
+            ),
+          ],
           if (time.isNotEmpty) ...[
             TextSpan(
               text: ' · $time',
@@ -287,6 +207,8 @@ class _Folio extends StatelessWidget {
           ],
         ],
       ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 }
@@ -334,13 +256,13 @@ class _Photo extends StatelessWidget {
 
 // -- the variants ------------------------------------------------------------
 
-/// The lead story: photograph, then the headline at nameplate size, then the
-/// summary and the trust row. This is the story the page is sold on.
+/// The lead story: photograph, then the headline, then one summary line. This
+/// is the story the page is sold on, so it is the one slot allowed a picture
+/// and a summary — and it is still one card, not a poster.
 class _LeadCard extends StatelessWidget {
   const _LeadCard({
     required this.story,
     required this.headline,
-    required this.language,
     required this.strings,
     this.onTap,
     this.heroTag,
@@ -348,7 +270,6 @@ class _LeadCard extends StatelessWidget {
 
   final Story story;
   final String headline;
-  final String language;
   final AppStrings strings;
   final VoidCallback? onTap;
   final String? heroTag;
@@ -360,50 +281,41 @@ class _LeadCard extends StatelessWidget {
     return _CardShell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 4),
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 11),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (hasPhoto) ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
-                child: _Photo(
-                  url: image,
-                  width: double.infinity,
-                  height: 200,
-                  heroTag: heroTag,
-                ),
+              _Photo(
+                url: image,
+                width: double.infinity,
+                height: 148,
+                radius: 6,
+                heroTag: heroTag,
+              ),
+              const SizedBox(height: 9),
+            ],
+            if (story.isBreaking || story.isDeveloping) ...[
+              _badgeRow(context),
+              const SizedBox(height: 6),
+            ],
+            Text(
+              headline,
+              style: storyHeadline(context, headline, size: 18, maxLines: 3),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 5),
+            _Folio(story: story, strings: strings),
+            if (story.lead.trim().isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                story.lead,
+                style: teluguBody(context, story.lead, size: 13.5),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (story.isBreaking || story.isDeveloping) ...[
-                    _badgeRow(context),
-                    const SizedBox(height: 8),
-                  ],
-                  Text(
-                    headline,
-                    style: storyHeadline(context, headline, size: 22, maxLines: 4),
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-                  _Folio(story: story, strings: strings),
-                  const SizedBox(height: 8),
-                  Text(
-                    story.lead,
-                    style: teluguBody(context, story.lead, size: 14),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 10),
-                  _trustRow(context, strings, language),
-                ],
-              ),
-            ),
           ],
         ),
       ),
@@ -414,105 +326,84 @@ class _LeadCard extends StatelessWidget {
     return Row(
       children: [
         if (story.isBreaking)
-          _Badge(label: strings.breaking, colour: SemanticColour.breaking),
-        if (story.isDeveloping && !story.isBreaking) ...[
+          _Badge(label: strings.breaking, colour: SemanticColour.breaking)
+        else if (story.isDeveloping)
           _Badge(label: strings.developing, colour: SemanticColour.developing),
-        ],
-      ],
-    );
-  }
-
-  Widget _trustRow(BuildContext context, AppStrings strings, String language) {
-    return Wrap(
-      spacing: 6,
-      runSpacing: 4,
-      children: [
-        _sourcesChip(context, story, strings),
-        if (_evidenceChip(context, story, strings, language) case final chip?)
-          chip,
-        if (story.hasConflict)
-          _chip(
-            context,
-            icon: Icons.warning_amber_rounded,
-            label: strings.inConflict,
-            colour: SemanticColour.disputed,
-            filled: true,
-          ),
-        if (story.isCorrected)
-          _chip(
-            context,
-            icon: Icons.edit_outlined,
-            label: strings.corrections,
-            colour: SemanticColour.developing,
-          ),
       ],
     );
   }
 }
 
-/// A secondary story: column-width, square photo, three-line headline. Two of
-/// these sit side by side under the lead.
-class _SecondaryCard extends StatelessWidget {
-  const _SecondaryCard({
+/// A standard story: headline, a two-line summary, and the meta row, with a
+/// small thumbnail beside the type when the desk has a photograph. The bulk
+/// of a page is these, which is what makes a page of twelve stories readable.
+class _StandardCard extends StatelessWidget {
+  const _StandardCard({
     required this.story,
     required this.headline,
-    required this.language,
     required this.strings,
+    required this.showImage,
+    this.trailing,
     this.onTap,
-    this.heroTag,
   });
 
   final Story story;
   final String headline;
-  final String language;
   final AppStrings strings;
+  final bool showImage;
+  final Widget? trailing;
   final VoidCallback? onTap;
-  final String? heroTag;
 
   @override
   Widget build(BuildContext context) {
     final image = story.imageFor(context.read<AppState>().baseUrl);
-    final hasPhoto = image != null && image.isNotEmpty;
+    final hasPhoto = showImage && image != null && image.isNotEmpty;
     return _CardShell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Column(
+        padding: const EdgeInsets.fromLTRB(11, 10, 10, 11),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (hasPhoto)
-              _Photo(
-                url: image,
-                width: double.infinity,
-                height: 104,
-                heroTag: heroTag,
-              )
-            else
-              Container(
-                height: 104,
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   if (story.isBreaking || story.isDeveloping) ...[
                     _badgeRow(context),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 5),
                   ],
                   Text(
                     headline,
-                    style: storyHeadline(context, headline, size: 15, maxLines: 3)
+                    style: storyHeadline(context, headline, size: 15,
+                            maxLines: 3)
                         .copyWith(fontWeight: FontWeight.w700),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 5),
                   _Folio(story: story, strings: strings),
+                  if (story.lead.trim().isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    Text(
+                      story.lead,
+                      style: teluguBody(context, story.lead, size: 13),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  if (trailing != null) ...[
+                    const SizedBox(height: 6),
+                    trailing!,
+                  ],
                 ],
               ),
             ),
+            if (hasPhoto) ...[
+              const SizedBox(width: 10),
+              _Photo(url: image, width: 72, height: 72, radius: 6),
+            ],
           ],
         ),
       ),
@@ -523,8 +414,8 @@ class _SecondaryCard extends StatelessWidget {
     return Row(
       children: [
         if (story.isBreaking)
-          _Badge(label: strings.breaking, colour: SemanticColour.breaking),
-        if (story.isDeveloping && !story.isBreaking)
+          _Badge(label: strings.breaking, colour: SemanticColour.breaking)
+        else if (story.isDeveloping)
           _Badge(label: strings.developing, colour: SemanticColour.developing),
       ],
     );
@@ -537,14 +428,12 @@ class _BriefCard extends StatelessWidget {
   const _BriefCard({
     required this.story,
     required this.headline,
-    required this.language,
     required this.strings,
     this.onTap,
   });
 
   final Story story;
   final String headline;
-  final String language;
   final AppStrings strings;
   final VoidCallback? onTap;
 
@@ -557,182 +446,29 @@ class _BriefCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 11),
-            child: Row(
+            padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 2),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _Folio(story: story, strings: strings, brief: true),
-                      const SizedBox(height: 5),
-                      Text(
-                        headline,
-                        style: storyHeadline(context, headline, size: 15.5,
-                                maxLines: 3)
-                            .copyWith(fontWeight: FontWeight.w700),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (story.isCorroborated || story.hasConflict) ...[
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            if (story.isCorroborated)
-                              _sourcesChip(context, story, strings),
-                            if (story.isCorroborated && story.hasConflict)
-                              const SizedBox(width: 6),
-                            if (story.hasConflict)
-                              _chip(
-                                context,
-                                icon: Icons.warning_amber_rounded,
-                                label: strings.inConflict,
-                                colour: SemanticColour.disputed,
-                                filled: true,
-                              ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
+                _Folio(story: story, strings: strings, brief: true),
+                const SizedBox(height: 4),
+                Text(
+                  headline,
+                  style: storyHeadline(context, headline, size: 14.5,
+                          maxLines: 3)
+                      .copyWith(fontWeight: FontWeight.w700),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
           Divider(
             height: 1,
-            thickness: 0.7,
+            thickness: 0.6,
             color: theme.dividerColor,
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// The pre-redesign card, for screens that have not been re-laid-out.
-class _StandardCard extends StatelessWidget {
-  const _StandardCard({
-    required this.story,
-    required this.headline,
-    required this.language,
-    required this.strings,
-    required this.showImage,
-    this.trailing,
-    this.onTap,
-  });
-
-  final Story story;
-  final String headline;
-  final String language;
-  final AppStrings strings;
-  final bool showImage;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final image = story.imageFor(context.read<AppState>().baseUrl);
-    return _CardShell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            if (story.isBreaking)
-                              _Badge(
-                                  label: strings.breaking,
-                                  colour: SemanticColour.breaking),
-                            if (story.isDeveloping && !story.isBreaking)
-                              _Badge(
-                                  label: strings.developing,
-                                  colour: SemanticColour.developing),
-                            _Folio(story: story, strings: strings),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    headline,
-                    style: storyHeadline(context, headline, size: 16)
-                        .copyWith(fontWeight: FontWeight.w700),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (story.place != null) ...[
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.place_outlined,
-                            size: 13,
-                            color: theme.colorScheme.onSurfaceVariant),
-                        const SizedBox(width: 3),
-                        Flexible(
-                          child: Text(
-                            story.place!,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: [
-                      _sourcesChip(context, story, strings),
-                      if (_evidenceChip(context, story, strings, language)
-                          case final chip?)
-                        chip,
-                      if (story.hasConflict)
-                        _chip(
-                          context,
-                          icon: Icons.warning_amber_rounded,
-                          label: strings.inConflict,
-                          colour: SemanticColour.disputed,
-                          filled: true,
-                        ),
-                      if (story.isCorrected)
-                        _chip(
-                          context,
-                          icon: Icons.edit_outlined,
-                          label: strings.corrections,
-                          colour: SemanticColour.developing,
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            if (showImage && image != null && image.isNotEmpty) ...[
-              const SizedBox(width: 12),
-              _Photo(url: image, width: 96, height: 96, radius: 10),
-            ],
-          ],
-        ),
       ),
     );
   }

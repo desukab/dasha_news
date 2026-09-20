@@ -15,53 +15,34 @@ import 'package:dasha_news/models/story.dart';
 import 'package:dasha_news/state/app_state.dart';
 import 'package:dasha_news/widgets/story_card.dart';
 
-/// The card is the editorial contract made visible: a reader who never opens
-/// a story should still be able to read its evidence from the card alone.
+/// The card is what a reader scans a page by, so it is tested for what it owes
+/// the reader — the headline, the summary, where and when — and for what it
+/// must not show. Evidence levels, confidence scores, source counts and
+/// conflict flags are the desk's machinery; a reader who never opens a story
+/// should not have to read a dashboard to scroll past one.
 void main() {
-  testWidgets('a corroborated story shows its source count and evidence',
-      (tester) async {
-    await _pumpCard(
-      tester,
-      _story(numSources: 3, evidenceScore: 0.9),
-      facts: [_fact('fact')],
-    );
-
-    expect(find.textContaining('3'), findsWidgets);
-    expect(find.byIcon(Icons.verified_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.shield_outlined), findsOneWidget);
-    // A story whose outlets agree carries no conflict marker.
-    expect(find.byIcon(Icons.warning_amber_rounded), findsNothing);
-  });
-
-  testWidgets('a single-source story is marked as uncorroborated',
-      (tester) async {
-    await _pumpCard(tester, _story(numSources: 1, evidenceScore: 0.2));
-
-    expect(find.byIcon(Icons.info_outline), findsOneWidget);
-    expect(find.byIcon(Icons.verified_rounded), findsNothing);
-  });
-
-  testWidgets('a conflict between sources is shown, never hidden',
-      (tester) async {
+  testWidgets('a card draws no editorial machinery', (tester) async {
     await _pumpCard(
       tester,
       _story(
-        numSources: 2,
+        numSources: 3,
+        evidenceScore: 0.9,
+        correctionsCount: 1,
         sources: const [
           SourceLink(id: 1, corroborates: false, conflictsWith: 'toll figure'),
           SourceLink(id: 2, corroborates: true),
         ],
       ),
+      facts: [_fact('fact')],
     );
 
-    expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
-  });
-
-  testWidgets(
-      'a story without a fact list drops the evidence chip rather than guessing',
-      (tester) async {
-    await _pumpCard(tester, _story());
+    // Provenance and evidence live on the story page, not in the feed.
+    expect(find.byIcon(Icons.verified_rounded), findsNothing);
     expect(find.byIcon(Icons.shield_outlined), findsNothing);
+    expect(find.byIcon(Icons.info_outline), findsNothing);
+    expect(find.byIcon(Icons.warning_amber_rounded), findsNothing);
+    expect(find.byIcon(Icons.edit_outlined), findsNothing);
+    expect(find.textContaining('%'), findsNothing);
   });
 
   testWidgets('a breaking story is badged above the fold', (tester) async {
@@ -79,16 +60,39 @@ void main() {
     expect(find.text('BREAKING'), findsOneWidget);
   });
 
-  testWidgets('a corrected story points at its correction', (tester) async {
-    await _pumpCard(tester, _story(correctionsCount: 1));
-    expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
-  });
-
   testWidgets('the headline falls back rather than rendering blank',
       (tester) async {
     await _pumpCard(tester, _story(headlineTe: 'తెలంగాణ వార్త'), locale: 'en');
     // An English reader with no English headline still sees something.
     expect(find.text('తెలంగాణ వార్త'), findsOneWidget);
+  });
+
+  testWidgets('the meta line carries the district and the relative time',
+      (tester) async {
+    await _pumpCard(
+      tester,
+      _story(
+        sectionLabelEn: 'Politics',
+        district: 'Warangal',
+        publishedAt: DateTime.now(),
+      ),
+    );
+    // Only the section label is set in caps, the way a folio line reads; a
+    // district is a proper noun and keeps its own case.
+    expect(find.textContaining('POLITICS · Warangal ·'), findsOneWidget);
+    expect(find.textContaining('just now'), findsOneWidget);
+  });
+
+  testWidgets('the meta line does not pass a bare state off as a location',
+      (tester) async {
+    await _pumpCard(
+      tester,
+      _story(sectionLabelEn: 'Politics', publishedAt: DateTime.now()),
+    );
+    // Every story is filed from Telangana; naming the state on every card
+    // teaches the reader nothing, so only a district or a mandal is a place.
+    expect(find.textContaining('POLITICS · just now'), findsOneWidget);
+    expect(find.textContaining('POLITICS · TELANGANA'), findsNothing);
   });
 
   testWidgets('tapping the card calls back with its story', (tester) async {
@@ -127,6 +131,24 @@ void main() {
     expect(find.textContaining('మొదటి వాక్యం'), findsOneWidget);
   });
 
+  testWidgets('a standard variant shows headline, summary and thumbnail',
+      (tester) async {
+    await _pumpCard(
+      tester,
+      _story(
+        headlineTe: 'తెలంగాణ తాజా వార్త',
+        imageUrl: 'https://newsroom.test/photo.jpg',
+        bodyTe: 'ఇది మొదటి వాక్యం. రెండవ వాక్యం ఇది.',
+      ),
+      variant: StoryVariant.standard,
+    );
+
+    expect(find.byType(Card), findsOneWidget);
+    expect(find.byType(CachedNetworkImage), findsOneWidget);
+    expect(find.text('తెలంగాణ తాజా వార్త'), findsOneWidget);
+    expect(find.textContaining('మొదటి వాక్యం'), findsOneWidget);
+  });
+
   testWidgets('a brief variant is type only — no card, no photo, no summary',
       (tester) async {
     await _pumpCard(
@@ -140,43 +162,13 @@ void main() {
 
     expect(find.byType(Card), findsNothing);
     expect(find.byType(CachedNetworkImage), findsNothing);
-    // The brief keeps the headline and drops the summary; the count of
-    // sources moves to the story page.
+    // The brief keeps the headline and drops the summary.
     expect(find.textContaining('మొదటి వాక్యం'), findsNothing);
-  });
-
-  testWidgets('a brief still shows the conflict the sources are in',
-      (tester) async {
-    await _pumpCard(
-      tester,
-      _story(
-        numSources: 2,
-        sources: const [
-          SourceLink(id: 1, corroborates: false, conflictsWith: 'the figure'),
-          SourceLink(id: 2, corroborates: true),
-        ],
-      ),
-      variant: StoryVariant.brief,
-    );
-
-    expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
   });
 
   testWidgets('compact: true is the brief variant', (tester) async {
     await _pumpCard(tester, _story(), compact: true);
     expect(find.byType(Card), findsNothing);
-  });
-
-  testWidgets('a secondary variant shows the photograph and a short headline',
-      (tester) async {
-    await _pumpCard(
-      tester,
-      _story(imageUrl: 'https://newsroom.test/photo.jpg'),
-      variant: StoryVariant.secondary,
-    );
-
-    expect(find.byType(Card), findsOneWidget);
-    expect(find.byType(CachedNetworkImage), findsOneWidget);
   });
 }
 
@@ -221,13 +213,20 @@ Story _withFacts(Story story, List<Fact> facts) {
     numSources: story.numSources,
     isBreaking: story.isBreaking,
     isDeveloping: story.isDeveloping,
-    // These belong on the card's story too: the conflict and correction chips
-    // are read from them, and dropping them here silently weakened the tests.
     correctionsCount: story.correctionsCount,
     sources: story.sources,
     headlineTe: story.headlineTe,
-    bodyTe: story.bodyTe,
+    headlineTen: story.headlineTen,
+    headlineEn: story.headlineEn,
+    leadTe: story.leadTe,
+    sectionLabelTe: story.sectionLabelTe,
+    sectionLabelEn: story.sectionLabelEn,
+    district: story.district,
+    mandal: story.mandal,
+    state: story.state,
     imageUrl: story.imageUrl,
+    publishedAt: story.publishedAt,
+    bodyTe: story.bodyTe,
     facts: facts,
   );
 }
@@ -272,8 +271,12 @@ Story _story({
   bool isDeveloping = false,
   int correctionsCount = 0,
   String? headlineTe,
-  String? bodyTe,
+  String? headlineEn,
+  String sectionLabelEn = 'Telangana',
+  String? district,
   String? imageUrl,
+  DateTime? publishedAt,
+  String? bodyTe,
   List<SourceLink> sources = const [],
 }) {
   return Story(
@@ -287,21 +290,28 @@ Story _story({
     numSources: numSources,
     isBreaking: isBreaking,
     isDeveloping: isDeveloping,
-    headlineTe: headlineTe ?? 'Telangana news',
-    bodyTe: bodyTe,
-    correctionsCount: correctionsCount,
-    sources: sources,
+    // headlineEn is left null by default: a story with an English column
+    // gives an English reader English, which is what the gate is for, and
+    // the fallback tests need a story that has no English to fall back on.
+    headlineTe: headlineTe ?? 'తెలంగాణ వార్త',
+    headlineEn: headlineEn,
+    sectionLabelTe: 'తెలంగాణ',
+    sectionLabelEn: sectionLabelEn,
+    district: district,
+    state: 'Telangana',
     imageUrl: imageUrl,
+    publishedAt: publishedAt ?? DateTime(2025, 3, 4, 14, 30),
+    bodyTe: bodyTe,
+    sources: sources,
+    correctionsCount: correctionsCount,
   );
 }
 
-Fact _fact(String level) {
-  return Fact(
-    id: 1,
-    textTe: 'వాక్యం',
-    evidenceLevel: level,
-    confidence: 0.9,
-    status: 'active',
-    rank: 1,
-  );
-}
+Fact _fact(String text) => Fact(
+      id: 1,
+      textTe: text,
+      evidenceLevel: 'official',
+      confidence: 0.9,
+      status: 'active',
+      rank: 0,
+    );

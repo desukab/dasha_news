@@ -103,12 +103,29 @@ def test_published_statuses_complete():
 # Editorial writer
 # ---------------------------------------------------------------------------
 
-def test_headline_written_in_all_languages():
-    for language in ("te", "ten", "en"):
+def test_headline_written_in_the_languages_the_paper_uses():
+    for language in ("te", "en"):
         draft = write_headline(_facts(), language=language, district="Hyderabad")
         assert draft.headline, f"no headline for {language}"
         assert draft.words > 0
         assert draft.source in {"model", "heuristic"}
+
+
+def test_tenglish_is_withheld_not_generated():
+    # Tenglish is withheld rather than written: a machine transliterating
+    # Telugu script produces neither language, and nothing served from that
+    # column has ever been copy a person wrote. The column stays empty until
+    # an editor files a line in it. See orchestrator.render_story's language
+    # loop and api.views._renderable.
+    draft = write_headline(_facts(), language="ten", district="Hyderabad")
+    assert draft.headline == ""
+    assert draft.body == ""
+    assert draft.warnings
+    # It is not Telugu script either: the register is withheld outright, not
+    # substituted with a language the reader did not ask for.
+    draft_article = write_article(
+        _facts(), language="ten", headline="x", district="Hyderabad")
+    assert draft_article.body == ""
 
 
 def test_headline_needs_facts():

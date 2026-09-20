@@ -61,6 +61,19 @@ def _renderable(value: Optional[str], language: str) -> Optional[str]:
     text = str(value)
     if not text.strip():
         return None
+    if language == "ten":
+        # Tenglish is a register people write in, but nothing this pipeline
+        # has ever written in it was written by a person: it is Telugu script
+        # run through a transliterator, which is neither Telugu nor English and
+        # reads to a reader as garbled noise. The pipeline no longer generates
+        # it (see orchestrator.render_story), and the reader app no longer
+        # offers the register, so a reader never asks for it. This withholds
+        # the stored rows that predate those two changes rather than serving
+        # them, so an old install or a stale cache falls back to a language the
+        # story is actually written in. No classifier can tell mechanical
+        # transliteration from human Roman Telugu -- their letter distributions
+        # overlap -- so the column is withheld wholesale instead of filtered.
+        return None
     return text if validate_language(text, language).ok else None
 
 

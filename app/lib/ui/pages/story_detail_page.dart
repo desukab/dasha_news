@@ -17,11 +17,14 @@ import '../../widgets/states_view.dart';
 import '../main_shell.dart';
 import '../widgets/masthead.dart';
 
-/// The full story: headline, body, every fact with its evidence level, every
-/// source that reported it, and every correction since publication.
+/// The full story: headline, body, the outlets that reported it, and every
+/// correction since publication.
 ///
-/// This page is the product's promise. Nothing here is hidden: the reader can
-/// see exactly which claim rests on which evidence and which outlet said it.
+/// The page shows a reader what a newspaper shows a reader. The desk's own
+/// machinery — which claim rests on which evidence level, how confident the
+/// pipeline is, which sources corroborate which — is not a reader's concern;
+/// it lives in the editor's tool. What the reader gets instead is the story,
+/// who reported it, and a link to read it where it was filed.
 class StoryDetailPage extends StatefulWidget {
   const StoryDetailPage({super.key, required this.args});
 
@@ -126,36 +129,43 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                   _body(context, app, strings),
                   if (_story.updates.isNotEmpty)
                     _updates(context, app, strings),
-                  _facts(context, app, strings),
                   _sources(context, app, strings),
-                  _trustSummary(context, app, strings),
-                  const SliverToBoxAdapter(child: SizedBox(height: 40)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 32)),
                 ],
               ],
             ),
-      floatingActionButton: _error != null
+      bottomNavigationBar: _error != null
           ? null
-          : Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _actionButton(
-                  context: context,
-                  icon: app.isBookmarked(_story.id)
-                      ? Icons.bookmark_rounded
-                      : Icons.bookmark_border_rounded,
-                  label: app.isBookmarked(_story.id)
-                      ? strings.savedStory
-                      : strings.saveStory,
-                  highlighted: app.isBookmarked(_story.id),
-                  onPressed: _toggleBookmark,
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _actionButton(
+                        context: context,
+                        icon: app.isBookmarked(_story.id)
+                            ? Icons.bookmark_rounded
+                            : Icons.bookmark_border_rounded,
+                        label: app.isBookmarked(_story.id)
+                            ? strings.savedStory
+                            : strings.saveStory,
+                        highlighted: app.isBookmarked(_story.id),
+                        onPressed: _toggleBookmark,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _actionButton(
+                        context: context,
+                        icon: Icons.share_rounded,
+                        label: strings.shareStory,
+                        onPressed: _share,
+                      ),
+                    ),
+                  ],
                 ),
-                _actionButton(
-                  context: context,
-                  icon: Icons.share_rounded,
-                  label: strings.shareStory,
-                  onPressed: _share,
-                ),
-              ],
+              ),
             ),
     );
   }
@@ -177,7 +187,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
     final text = _story.headline(app.locale);
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+        padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -194,13 +204,14 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                       Theme.of(context).colorScheme.primary),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               text,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    height: hasTeluguScript(text) ? 1.4 : 1.24,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    height: hasTeluguScript(text) ? 1.36 : 1.22,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.1,
+                    fontSize: 20,
                   ),
             ),
           ],
@@ -232,7 +243,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
     final place = _story.place;
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
         child: Wrap(
           spacing: 10,
           runSpacing: 6,
@@ -273,11 +284,11 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
   Widget _heroImage(BuildContext context, AppState app) {
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+        padding: const EdgeInsets.fromLTRB(16, 2, 16, 10),
         child: Hero(
           tag: 'story-photo-${_story.id}',
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(10),
             child: AspectRatio(
               aspectRatio: 16 / 9,
               child: CachedNetworkImage(
@@ -301,12 +312,12 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
     final isCurrent = audio.nowPlaying?.id == _story.id;
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Row(
             children: [
@@ -348,7 +359,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
     if (text.trim().isEmpty) {
       return SliverToBoxAdapter(
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           child: Text(strings.holdNote,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     fontStyle: FontStyle.italic,
@@ -363,7 +374,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
         .toList();
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -372,11 +383,11 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                 paragraphs[i],
                 textAlign: TextAlign.justify,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      height: hasTeluguScript(text) ? 1.72 : 1.62,
-                      fontSize: 16.5,
+                      height: hasTeluguScript(text) ? 1.68 : 1.58,
+                      fontSize: 15.5,
                     ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
             ],
             Text(
               strings.originalVsSummary,
@@ -394,7 +405,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
   Widget _updates(BuildContext context, AppState app, AppStrings strings) {
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -479,107 +490,11 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
     );
   }
 
-  Widget _facts(BuildContext context, AppState app, AppStrings strings) {
-    final facts = [..._story.facts]..sort((a, b) => a.rank.compareTo(b.rank));
-    if (facts.isEmpty) return const SliverToBoxAdapter(child: SizedBox());
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _subhead(context, strings.facts, Icons.fact_check_outlined),
-            const SizedBox(height: 10),
-            for (final fact in facts) ...[
-              Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border(
-                    left: BorderSide(
-                      color:
-                          evidenceColour(fact.evidenceLevel).inkOf(context),
-                      width: 3,
-                    ),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        _evidenceTag(context, fact),
-                        const Spacer(),
-                        Text(
-                          '${(fact.confidence * 100).round()}%',
-                          style:
-                              Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      fact.text(app.locale),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            height:
-                                hasTeluguScript(fact.text(app.locale)) ? 1.6 : 1.5,
-                          ),
-                    ),
-                    if (fact.attributedTo != null &&
-                        fact.attributedTo!.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        '${strings.attributedTo}: ${fact.attributedTo}',
-                        style:
-                            Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _evidenceTag(BuildContext context, Fact fact) {
-    final colour = evidenceColour(fact.evidenceLevel).inkOf(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: colour.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Text(
-        fact.label(context.read<AppState>().locale).toUpperCase(),
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colour,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.6,
-              fontSize: 10,
-            ),
-      ),
-    );
-  }
-
   Widget _sources(BuildContext context, AppState app, AppStrings strings) {
     if (_story.sources.isEmpty) return const SliverToBoxAdapter(child: SizedBox());
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -587,11 +502,11 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
             const SizedBox(height: 8),
             for (final source in _story.sources) ...[
               Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
@@ -602,90 +517,17 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                           Text(
                             source.sourceName ?? source.displayUrl,
                             style:
-                                Theme.of(context).textTheme.titleSmall?.copyWith(
+                                Theme.of(context).textTheme.labelLarge?.copyWith(
                                       fontWeight: FontWeight.w700,
                                     ),
                           ),
-                          const SizedBox(height: 3),
-                          Text(
-                            source.articleTitle ??
-                                source.articleUrl ??
-                                source.siteUrl ??
-                                '',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Icon(
-                                source.corroborates
-                                    ? Icons.verified_rounded
-                                    : (source.conflictsWith ?? '').isNotEmpty
-                                        ? Icons.warning_amber_rounded
-                                        : Icons.info_outline_rounded,
-                                size: 13,
-                                color: source.corroborates
-                                    ? SemanticColour.fact.inkOf(context)
-                                    : (source.conflictsWith ?? '')
-                                            .isNotEmpty
-                                        ? SemanticColour.disputed.inkOf(
-                                            context)
-                                        : Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 5),
-                              Flexible(
-                                child: Text(
-                                  source.corroborates
-                                      ? strings.corroborated
-                                      : (source.conflictsWith ?? '').isNotEmpty
-                                          ? strings.inConflict
-                                          : strings.sources,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelSmall
-                                      ?.copyWith(
-                                        color: source.corroborates
-                                            ? SemanticColour.fact.inkOf(
-                                                context)
-                                            : (source.conflictsWith ?? '')
-                                                    .isNotEmpty
-                                                ? SemanticColour.disputed
-                                                    .inkOf(context)
-                                                : Theme.of(context)
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                ),
-                              ),
-                              if (source.publishedAt != null) ...[
-                                const SizedBox(width: 8),
-                                Text(
-                                  relativeTime(source.publishedAt,
-                                      strings: app.strings),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelSmall,
-                                ),
-                              ],
-                            ],
-                          ),
-                          if ((source.conflictsWith ?? '').isNotEmpty) ...[
-                            const SizedBox(height: 6),
+                          if ((source.articleTitle ?? '').isNotEmpty) ...[
+                            const SizedBox(height: 2),
                             Text(
-                              source.conflictsWith!,
-                              style:
-                                  Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: SemanticColour.disputed
-                                            .inkOf(context),
-                                        fontStyle: FontStyle.italic,
-                                      ),
+                              source.articleTitle!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ],
                         ],
@@ -693,7 +535,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                     ),
                     if (source.articleUrl != null)
                       IconButton(
-                        icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                        icon: const Icon(Icons.open_in_new_rounded, size: 17),
                         tooltip: strings.readAtSource,
                         onPressed: () async {
                           final uri = Uri.parse(source.articleUrl!);
@@ -713,125 +555,13 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
     );
   }
 
-  Widget _trustSummary(BuildContext context, AppState app, AppStrings strings) {
-    final theme = Theme.of(context);
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _subhead(context, strings.evidence, Icons.shield_outlined),
-              const SizedBox(height: 10),
-              _meter(
-                context,
-                label: strings.evidence,
-                value: _story.evidenceScore,
-                colour: SemanticColour.fact.inkOf(context),
-              ),
-              const SizedBox(height: 8),
-              _meter(
-                context,
-                label: strings.confidence,
-                value: _story.confidence,
-                colour: SemanticColour.developing.inkOf(context),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(Icons.groups_rounded,
-                      size: 16, color: theme.colorScheme.onSurfaceVariant),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      '${_story.numSources} ${strings.sources} · '
-                      '${_story.isCorroborated ? strings.corroborated : strings.sources}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                    ),
-                  ),
-                ],
-              ),
-              if (_story.isCorrected) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(Icons.edit_outlined,
-                        size: 16, color: SemanticColour.developing.inkOf(
-                            context)),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${strings.corrections}: ${_story.correctionsCount} · '
-                          'v${_story.version}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                            color: SemanticColour.developing.inkOf(context),
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _meter(BuildContext context,
-      {required String label, required double value, required Color colour}) {
-    final theme = Theme.of(context);
-    final clamped = value.clamp(0.0, 1.0);
-    return Row(
-      children: [
-        SizedBox(
-          width: 84,
-          child: Text(label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  )),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: LinearProgressIndicator(
-              value: clamped,
-              minHeight: 6,
-              backgroundColor: theme.colorScheme.surfaceContainerHighest,
-              color: colour,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 38,
-          child: Text(
-            '${(clamped * 100).round()}%',
-            textAlign: TextAlign.end,
-            style: theme.textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _subhead(BuildContext context, String label, IconData icon) {
     return Row(
       children: [
-        Icon(icon, size: 17, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(width: 7),
+        Icon(icon, size: 15, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 6),
         Text(label,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w800,
                 )),
       ],
@@ -845,17 +575,23 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
     required VoidCallback onPressed,
     bool highlighted = false,
   }) {
-    return FloatingActionButton.extended(
-      heroTag: 'story-action-$label',
+    final theme = Theme.of(context);
+    return FilledButton.icon(
       onPressed: onPressed,
-      icon: Icon(icon),
+      style: FilledButton.styleFrom(
+        backgroundColor: highlighted
+            ? theme.colorScheme.primary
+            : theme.colorScheme.surfaceContainerHigh,
+        foregroundColor: highlighted
+            ? theme.colorScheme.onPrimary
+            : theme.colorScheme.onSurface,
+        minimumSize: const Size.fromHeight(42),
+        textStyle: theme.textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      icon: Icon(icon, size: 17),
       label: Text(label),
-      backgroundColor: highlighted
-          ? Theme.of(context).colorScheme.primary
-          : Theme.of(context).colorScheme.surfaceContainerHigh,
-      foregroundColor: highlighted
-          ? Theme.of(context).colorScheme.onPrimary
-          : Theme.of(context).colorScheme.onSurface,
     );
   }
 }

@@ -325,7 +325,7 @@ class _HomePageState extends TabPageState<HomePage> {
       slot -= 1;
       final stories = spec.region.items;
       if (slot < stories.length) {
-        return _regionStory(context, spec, stories[slot]);
+        return _regionStory(context, spec, stories[slot], slot);
       }
       slot -= stories.length;
       if (spec.isNear && spec.region.isEmpty) {
@@ -336,10 +336,12 @@ class _HomePageState extends TabPageState<HomePage> {
     return _footer(context, strings);
   }
 
-  /// The first story of the Now region is the front page's lead — full-bleed,
-  /// with the photograph — and every other story in every region is a brief.
+  /// The first story of a region is drawn as the region's standard card —
+  /// headline, summary, thumbnail — and the stories under it are briefs. The
+  /// front page's one lead is the top of Now, so a region is not a wall of
+  /// identical cards but a lead sentence and a run of headlines.
   Widget _regionStory(
-      BuildContext context, _RegionSpec spec, Story story) {
+      BuildContext context, _RegionSpec spec, Story story, int index) {
     final isLead = identical(spec.region, _front!.now) &&
         identical(story, _front!.now.items.first);
     if (isLead) {
@@ -350,7 +352,18 @@ class _HomePageState extends TabPageState<HomePage> {
           heroTag: _photoHeroTag(story),
           onTap: () => _openStory(story),
         ),
-        vertical: 14,
+        vertical: 8,
+      );
+    }
+    if (index == 0) {
+      return _inset(
+        StoryCard(
+          story: story,
+          variant: StoryVariant.standard,
+          onTap: () => _openStory(story),
+        ),
+        horizontal: 10,
+        vertical: 5,
       );
     }
     return _inset(
@@ -372,7 +385,7 @@ class _HomePageState extends TabPageState<HomePage> {
     return _inset(
       Material(
         color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () => _chooseDistrict(context, context.read<AppState>(),
@@ -380,7 +393,7 @@ class _HomePageState extends TabPageState<HomePage> {
           child: Container(
             margin: const EdgeInsets.only(top: 6),
             padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: theme.colorScheme.outlineVariant),
@@ -433,9 +446,10 @@ class _HomePageState extends TabPageState<HomePage> {
   /// so tagging its thumbnails would put two heroes on one screen.
   String _photoHeroTag(Story story) => 'story-photo-${story.id}';
 
-  /// The nameplate band: the paper's name, the edition date, and the district
-  /// the reader has chosen, which is one tap away rather than a pill bar of
-  /// thirty-three.
+  /// The nameplate: the paper's name, the edition date, and the district the
+  /// reader has chosen, in one slim band. A front page's masthead is a rule
+  /// and a name, not a banner that costs the page its first screenful; the
+  /// district is one tap away rather than a pill bar of thirty-three.
   Widget _masthead(BuildContext context, AppStrings strings) {
     final app = context.watch<AppState>();
     return Container(
@@ -446,21 +460,22 @@ class _HomePageState extends TabPageState<HomePage> {
           colors: [mastheadRed, mastheadRedDark],
         ),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 18, 12, 12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Center(child: DashaMasthead(size: MastheadSize.front)),
-          const SizedBox(height: 14),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: MastheadFolio(date: _dateLine(strings)),
-              ),
-              _districtChip(context, app, strings),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const DashaMasthead(size: MastheadSize.compact),
+                const SizedBox(height: 3),
+                MastheadFolio(date: _dateLine(strings)),
+              ],
+            ),
           ),
+          _districtChip(context, app, strings),
         ],
       ),
     );
@@ -578,7 +593,7 @@ class _HomePageState extends TabPageState<HomePage> {
   Widget _footer(BuildContext context, AppStrings strings) {
     if (_servingCache) return _offlineBanner(context, strings);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 18, 14, 8),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
       child: Center(
         child: Container(
           width: 44,
@@ -638,7 +653,7 @@ class _DevelopingRail extends StatelessWidget {
     final strings = app.strings;
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(top: 6, bottom: 6),
+      padding: const EdgeInsets.only(top: 4, bottom: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -659,9 +674,9 @@ class _DevelopingRail extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           SizedBox(
-            height: 118,
+            height: 92,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -705,20 +720,20 @@ class _RailCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      width: 216,
+      width: 190,
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(11, 10, 11, 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -735,18 +750,18 @@ class _RailCard extends StatelessWidget {
                           label: strings.developing),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Expanded(
                   child: Text(
                     story.headline(language),
                     style: storyHeadline(context, story.headline(language),
-                            size: 14, maxLines: 4)
+                            size: 13, maxLines: 4)
                         .copyWith(fontWeight: FontWeight.w700),
                     maxLines: 4,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   relativeTime(story.publishedAt, strings: strings),
                   style: theme.textTheme.labelSmall?.copyWith(
@@ -854,14 +869,14 @@ class _RegionHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final region = spec.region;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 18, 14, 4),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.baseline,
         textBaseline: TextBaseline.alphabetic,
         children: [
           Container(
             width: 3,
-            height: 15,
+            height: 12,
             decoration: BoxDecoration(
               color: spec.isNear
                   ? SemanticColour.developing.inkOf(context)
@@ -869,10 +884,10 @@ class _RegionHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(1.5),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 7),
           Text(
             spec.label,
-            style: theme.textTheme.titleMedium?.copyWith(
+            style: theme.textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w800,
               letterSpacing: -0.1,
             ),

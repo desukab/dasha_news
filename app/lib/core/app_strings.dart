@@ -1,11 +1,10 @@
-/// All reader-facing strings, in the three publication languages.
+/// All reader-facing strings, in the languages the paper publishes in.
 ///
-/// Adding a fourth language means adding a column here and nothing else; the
-/// rest of the app looks strings up through [AppStrings.of].
+/// Adding a language means adding a column here and nothing else; the rest of
+/// the app looks strings up through [AppStrings.of].
 ///
-/// `te`  — Telugu script, the primary language of the paper.
-/// `ten` — Tenglish (Telugu in the Roman alphabet), the second script.
-/// `en`  – English.
+/// `te` — Telugu script, the primary language of the paper.
+/// `en` — English.
 library;
 
 import 'package:flutter/widgets.dart';
@@ -47,7 +46,7 @@ class AppStrings {
       regionNow: 'ఇప్పుడు',
       regionNear: 'మీ చుట్టూ',
       regionTelangana: 'తెలంగాణ',
-      regionIndiaWorld: 'భారతం-ప్రపంచం',
+      regionIndiaWorld: 'భారతదేశం & ప్రపంచం',
       nearNeedsDistrict: 'మీ ప్రాంతాన్ని ఎంచుకోండి',
       nearNeedsDistrictHint: 'మీ జిల్లాలో జరుగుతున్న వార్తలను చూడటానికి',
       reading: 'చదువుతున్నారు',
@@ -118,113 +117,11 @@ class AppStrings {
       serverHint: 'న్యూస్‌రూమ్ చిరునామా',
       about: 'గురించి',
       aboutBody:
-          'దశ న్యూస్ అనేది తెలంగాణకు చెందిన AI ఆధారిత డిజిటల్ వార్తా పత్రిక. ప్రతి వార్తకు మూలం, ఆధారం స్థాయి, '
-          'మరియు ఎంతమంది మూలాలు నివేదించాయో బహిరంగంగా చూపిస్తుంది.',
+          'దశ న్యూస్ అనేది తెలంగాణకు చెందిన డిజిటల్ వార్తా పత్రిక. ప్రతి వార్తకు '
+          'మూలాలు బహిరంగంగా చూపిస్తుంది.',
       originalVsSummary: 'ఇది అసలు నివేదన కాదు; దశ సారాంశం.',
       unpublished: 'ప్రచురణకు ముందే',
       holdNote: 'సంపాదకీయ పర్యవేక్షణలో ఉంది',
-    ),
-    'ten': _Lang(
-      appName: 'Dasha News',
-      tagline: 'Telangana ki modati',
-      home: 'Home',
-      explore: 'Vibhagalu',
-      breaking: 'Breaking',
-      shorts: 'Shorts',
-      audio: 'Audio',
-      search: 'Vethakandi',
-      saved: 'Save chesinavi',
-      profile: 'Profile',
-      settings: 'Amarikalu',
-      language: 'Basha',
-      theme: 'Theme',
-      light: 'Light',
-      dark: 'Dark',
-      system: 'System',
-      district: 'Jilla',
-      allDistricts: 'Anni jillalu',
-      stateEdition: 'Rajyam',
-      latest: 'Taja',
-      developing: 'Konasagutunna',
-      regionNow: 'Ippudu',
-      regionNear: 'Mee chuttu',
-      regionTelangana: 'Telangana',
-      regionIndiaWorld: 'Bharatam-Prapancham',
-      nearNeedsDistrict: 'Mee pranthanni eechukoondi',
-      nearNeedsDistrictHint: 'Mee jillalo jarigutunna varthalanu choodataniki',
-      reading: 'Chaduvutunnaru',
-      readAtSource: 'Moolamlo chadavandi',
-      saveStory: 'Save cheyandi',
-      savedStory: 'Save aindi',
-      shareStory: 'Share cheyandi',
-      sources: 'Moolalu',
-      facts: 'Vastavalu',
-      evidence: 'Aadhaaram',
-      confidence: 'Nammakam',
-      attributedTo: 'Cheppindi',
-      corroborated: 'Dhruveekarinchabaddindi',
-      inConflict: 'Moolala madhya bhedam',
-      corrections: 'Savaralu',
-      updates: 'Navikaranalu',
-      listen: 'Vinandi',
-      pause: 'Aapandi',
-      resume: 'Konasaginchandi',
-      minRead: 'nimishalu',
-      justNow: 'Ippude',
-      minutesAgo: 'nimishala kritam',
-      hoursAgo: 'gantala kritam',
-      daysAgo: 'rojula kritam',
-      onboardingTitle: 'Dasha News ki swagatam',
-      onboardingBody:
-          'Telangana kosam nirminchina vaartha patrika. Mi basha, mi jilla, mi ishtam prakaram vaarthalu.',
-      chooseLanguage: 'Mi bashanu enchukondi',
-      chooseDistrict: 'Mi jillanu enchukondi',
-      getStarted: 'Prarambhinchandi',
-      next: 'Taruvatha',
-      skip: 'Dataveyi',
-      feedEmpty: 'Inkaa vaarthalu levu',
-      feedEmptyHint: 'Koddiseepulo malli prayatninchandi',
-      searchEmpty: 'Falithalu levu',
-      searchHint: 'Vaarthala kosam vethakandi',
-      bookmarksEmpty: 'Save chesina vaarthalu levu',
-      bookmarksEmptyHint: 'Chaduvutunappudu save cheyandi',
-      offline: 'Offline',
-      online: 'Online',
-      offlineHint: 'Chivarigi dachina vaarthalu chupistunnamu',
-      errorGeneric: 'Edo tappu jarigindi',
-      errorOffline: 'Vaarthalanu cherukole poyamu',
-      ok: 'Sare',
-      cancel: 'Raddu cheyyi',
-      save: 'Save chayyi',
-      serverInvalid: 'Idi chellubata ayye chirunama kadu — http:// leda https:// tho modalavvali',
-      audioUnavailable: 'Ee varthaku inka audio edition ledu.',
-      audioFailed: 'Audio play kaledu. Dayachesi koddiseppulo malli prayatnichandi.',
-      notFound: 'Page dorakaledu',
-      retry: 'Malli prayatninchandi',
-      loadMore: 'Marinni load cheyandi',
-      loading: 'Load avutondi',
-      submitTip: 'Vaartha pampandi',
-      tipBody: 'Miku telisina vaarthani rayandi',
-      tipBodyHint: 'Kaneesam padi aksharalu…',
-      tipLocation: 'Prantam (aichchikam)',
-      tipContact: 'Mi peru leda phone (aichchikam)',
-      tipSubmitted: 'Dhanyavaadalu! Mi vaartha sameekshalo undi',
-      tipTooShort: 'Dayachesi marinta vivaranga rayandi',
-      breakingAlerts: 'Breaking alerts',
-      dailyDigest: 'Rojuvaari saaraamsham',
-      clearCache: 'Cache clear cheyandi',
-      cacheCleared: 'Cache clear aindi',
-      resetIdentity: 'Device ID ni reset cheyandi',
-      identityReset: 'Mi gurtimpu reset aindi',
-      server: 'Server',
-      serverHint: 'Newsroom chirunama',
-      about: 'Gurinchi',
-      aboutBody:
-          'Dasha News anedhi Telanganaki chendina AI aadharitha digital vaartha patrika. Prati vaarthaku '
-          'moolam, aadhaaram sthayi, mariu enthamandri moolalu nivedinchayo bahiranganga chupistundi.',
-      originalVsSummary: 'Idi asalu nivedana kaadu; Dasha saaraamsham.',
-      unpublished: 'Prachuranaku mundhe',
-      holdNote: 'Sampadakeeya paryavekshanalo undi',
     ),
     'en': _Lang(
       appName: 'Dasha News',
@@ -323,8 +220,8 @@ class AppStrings {
       serverHint: 'Newsroom address',
       about: 'About',
       aboutBody:
-          'Dasha News is an AI-assisted digital newspaper for Telangana. Every story shows its '
-          'sources, the evidence level of each claim, and how many outlets reported it.',
+          'Dasha News is a digital newspaper for Telangana. Every story carries the '
+          'outlets that reported it, so you can read it at the source.',
       originalVsSummary: 'This is a Dasha summary, not the original report.',
       unpublished: 'Not yet published',
       holdNote: 'Held for editorial review',
@@ -437,8 +334,6 @@ class AppStrings {
     switch (code) {
       case 'te':
         return 'తెలుగు';
-      case 'ten':
-        return 'Tenglish';
       default:
         return 'English';
     }

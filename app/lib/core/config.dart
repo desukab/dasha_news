@@ -64,8 +64,14 @@ const String onboardingDoneKey = 'dasha.onboarding_done';
 const String homeSectionKey = 'dasha.home_section';
 const String homeDistrictKey = 'dasha.home_district';
 
-/// The three publication languages, in the order the app offers them.
-const List<String> supportedLocales = ['te', 'ten', 'en'];
+/// The languages the paper publishes in, in the order the app offers them.
+///
+/// Telugu and English. Tenglish — Telugu in the Roman alphabet — is a register
+/// the newsroom has no copy in: it could only be produced by transliterating
+/// Telugu script, which yields neither language, so the paper does not offer
+/// it. A reader who selected it before it was withdrawn is migrated to Telugu
+/// by [AppState.init].
+const List<String> supportedLocales = ['te', 'en'];
 
 /// Request timeouts. The newsroom is slow on a cold start (it may be sweeping
 /// feeds), so read timeout is generous.

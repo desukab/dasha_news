@@ -580,7 +580,14 @@ def _write_story(session: Session, story: Story, source: Source,
         for fact in facts
     ]
     coverage: List[str] = []
-    for language in ("te", "ten", "en"):
+    # Telugu and English are the two languages the desk and its sources
+    # actually write. Tenglish -- Telugu in Roman letters -- is a real register
+    # on the ground, but nobody files it: it can only be produced by
+    # transliterating Telugu script, and mechanical transliteration is neither
+    # Telugu nor English. Serving that output put garbled vowel-stripped lines
+    # in front of readers, so it is not rendered, and the column stays empty
+    # until an editor writes it by hand.
+    for language in ("te", "en"):
         try:
             headline_draft = write_headline(
                 fact_views, language=language, district=story.district,

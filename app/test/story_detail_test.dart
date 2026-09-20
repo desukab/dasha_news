@@ -43,7 +43,7 @@ void main() {
     expect(find.text(strings.offlineHint), findsOneWidget);
     expect(find.text(strings.retry), findsOneWidget);
     // The action buttons belong to a story that loaded.
-    expect(find.byType(FloatingActionButton), findsNothing);
+    expect(find.byType(FilledButton), findsNothing);
   });
 
   testWidgets('a story that loaded draws it, not the error state',
@@ -60,7 +60,12 @@ void main() {
 
     expect(find.byType(ErrorState), findsNothing);
     expect(find.text('తెలంగాణ తాజా వార్త'), findsWidgets);
-    expect(find.byType(FloatingActionButton), findsNWidgets(2));
+    expect(find.byType(FilledButton), findsNWidgets(2));
+    // The desk's machinery is not the reader's: evidence levels, confidence
+    // meters and claim cards belong to the editor's tool, not this page.
+    expect(find.byIcon(Icons.shield_outlined), findsNothing);
+    expect(find.byIcon(Icons.fact_check_outlined), findsNothing);
+    expect(find.textContaining('%'), findsNothing);
   });
 
   testWidgets('a server failure is not reported in the transport\'s words',

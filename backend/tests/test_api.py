@@ -153,11 +153,15 @@ def test_detail_withholds_a_body_in_the_wrong_script(session, client):
     assert body["body_te"] is None
 
 
-def test_feed_serves_tenglish_only_when_the_line_is_roman_telugu(session, client):
-    # Roman Telugu keeps Telugu words' open syllables; an English sentence does
-    # not, which is what stops English copy being served as Tenglish.
+def test_feed_withholds_tenglish_whether_or_not_the_line_is_roman_telugu(
+        session, client):
+    # The register is withheld wholesale: no classifier can separate mechanical
+    # transliteration from human Roman Telugu, so a line that passes the
+    # language gate is still not served. See api.views._renderable.
     _story(session, headline_te="తెలుగు శీర్షిక",
            headline_ten="ministers review the flood relief camps today")
+    _story(session, headline_te="తెలుగు శీర్షిక",
+           headline_ten="aichchikam cadivindi andaru kuurcunnaru")
     assert client.get("/v1/feed?language=ten").json()["items"] == []
 
 
