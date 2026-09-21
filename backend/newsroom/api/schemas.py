@@ -122,6 +122,89 @@ class StoryDetail(StoryCard):
     confidence: float = 0.0
 
 
+# ---------------------------------------------------------------------------
+# The reader's view of a story.
+#
+# Everything above is the desk's own model: it carries the evidence taxonomy, the
+# source links, the review flags and the provenance of every claim, because that
+# is what an editor is checking a story against. Nothing of it belongs on a
+# reader's phone. The separation is a schema, not a convention: a field that is
+# not declared here cannot reach `/v1/front` even if a serializer later tries to
+# add it, because pydantic drops undeclared keys rather than passing them through.
+# ---------------------------------------------------------------------------
+
+
+class ReaderStoryCard(BaseModel):
+    """What a story looks like on the front page.
+
+    The reader sees Dasha's story. Where the reporting came from, how strongly
+    it is supported and whether a editor has locked it are answers to questions
+    the reader did not ask, and publishing them is publishing the newsroom's
+    working notes alongside its finished work.
+    """
+
+    id: int
+    cluster_id: str
+    slug: str
+    headline_te: Optional[str] = None
+    headline_ten: Optional[str] = None
+    headline_en: Optional[str] = None
+    lead_te: Optional[str] = None
+    section: str
+    section_label_te: Optional[str] = None
+    section_label_en: Optional[str] = None
+    status: str
+    status_label_te: Optional[str] = None
+    district: Optional[str] = None
+    mandal: Optional[str] = None
+    state: Optional[str] = None
+    is_breaking: bool
+    is_developing: bool
+    image_url: Optional[str] = None
+    audio_url: Optional[str] = None
+    has_audio: bool = False
+    published_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class ReaderStoryDetail(ReaderStoryCard):
+    """The same story, opened. Adds the body and nothing else."""
+    body_te: Optional[str] = None
+    body_ten: Optional[str] = None
+    body_en: Optional[str] = None
+
+
+class ReaderRegionPage(BaseModel):
+    """One region of the front page, in the reader's vocabulary.
+
+    `asked` is the question the region answers -- a district for Near You, the
+    section slug otherwise -- and it is echoed because an empty region is only
+    meaningful if the reader can see which question went unanswered.
+    """
+
+    items: List[ReaderStoryCard] = Field(default_factory=list)
+    total: int = 0
+    asked: Optional[str] = None
+    has_more: bool = False
+
+
+class ReaderFrontPage(BaseModel):
+    """The whole front page in one round trip.
+
+    Four regions in the order the reader scans them. Each region is a separate
+    question over the same published room, so a story may appear in two -- the
+    lead of the Telangana region can also be the freshest story in Now. That is
+    the front page repeating itself, not a bug in the deduper.
+    """
+
+    now: ReaderRegionPage = Field(default_factory=ReaderRegionPage)
+    near: ReaderRegionPage = Field(default_factory=ReaderRegionPage)
+    telangana: ReaderRegionPage = Field(default_factory=ReaderRegionPage)
+    india_world: ReaderRegionPage = Field(default_factory=ReaderRegionPage)
+    language: str = "te"
+    district: Optional[str] = None
+
+
 class Page(BaseModel):
     items: List[Any]
     total: int

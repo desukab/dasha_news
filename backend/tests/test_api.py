@@ -308,13 +308,19 @@ def test_districts(client):
 
 
 def test_story_detail(session, client):
+    """The reader's detail carries the story, not the desk's notes on it.
+
+    `facts`, `sources` and `version` used to be served here; they are the
+    newsroom's working state, and the reader's view of a finished story does
+    not include them.
+    """
     story = _story(session)
     body = client.get(f"/v1/story/{story.id}").json()
     assert body["id"] == story.id
     assert body["body_te"] == "పరీక్ష వాచకం"
-    assert body["facts"] == []
-    assert body["sources"] == []
-    assert body["version"] == 1
+    for absent in ("facts", "sources", "updates", "version", "confidence",
+                   "evidence_score", "num_sources", "needs_review"):
+        assert absent not in body, f"{absent} is desk state and must not reach the reader"
 
 
 def test_story_detail_404(session, client):

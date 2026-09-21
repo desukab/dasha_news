@@ -12,8 +12,9 @@ from sqlalchemy.orm import Session
 from newsroom.api.schemas import (
     DeviceIn,
     DeviceOut,
-    FrontPage,
     Page,
+    ReaderFrontPage,
+    ReaderStoryDetail,
     SubmissionIn,
     SubmissionOut,
 )
@@ -22,8 +23,8 @@ from newsroom.api.views import (
     serves_language,
     story_language,
     to_front_page,
-    to_story_card,
-    to_story_detail,
+    to_reader_card,
+    to_reader_detail,
 )
 from newsroom.db.engine import get_db
 from newsroom.db.models import Bookmark, Device, ReadingHistory, Story, Submission
@@ -43,7 +44,7 @@ def _published_query():
     return select(Story).where(Story.status.in_(PUBLISHED))
 
 
-@router.get("/front", response_model=FrontPage, dependencies=[Depends(rate_limit)])
+@router.get("/front", response_model=ReaderFrontPage, dependencies=[Depends(rate_limit)])
 def front(request: Request, db: Session = Depends(get_db),
           language: str = Query("te", pattern="^(te|ten|en)$"),
           district: Optional[str] = Query(None, max_length=120),
@@ -100,7 +101,7 @@ def feed(request: Request, db: Session = Depends(get_db),
 
     start = (page - 1) * page_size
     rows = served[start:start + page_size]
-    items = [to_story_card(db, story, language=language, rendered=rendered[story.id])
+    items = [to_reader_card(db, story, language=language, rendered=rendered[story.id])
              .model_dump() for story in rows]
     return paginate(items, len(served), page, page_size)
 
@@ -112,7 +113,7 @@ def breaking(db: Session = Depends(get_db),
     total = db.execute(select(func.count()).select_from(query.subquery())).scalar_one()
     rows = db.execute(query.order_by(Story.published_at.desc())
                       .offset((page - 1) * page_size).limit(page_size)).scalars().all()
-    return paginate([to_story_card(db, s).model_dump() for s in rows], total, page, page_size)
+    return paginate([to_reader_card(db, s).model_dump() for s in rows], total, page, page_size)
 
 
 @router.get("/developing", response_model=Page, dependencies=[Depends(rate_limit)])
@@ -122,7 +123,7 @@ def developing(db: Session = Depends(get_db),
     total = db.execute(select(func.count()).select_from(query.subquery())).scalar_one()
     rows = db.execute(query.order_by(Story.updated_at.desc())
                       .offset((page - 1) * page_size).limit(page_size)).scalars().all()
-    return paginate([to_story_card(db, s).model_dump() for s in rows], total, page, page_size)
+    return paginate([to_reader_card(db, s).model_dump() for s in rows], total, page, page_size)
 
 
 @router.get("/sections", dependencies=[Depends(rate_limit)])
@@ -151,7 +152,7 @@ def story_detail(story_id: int, db: Session = Depends(get_db)) -> Any:
     story = db.get(Story, story_id)
     if story is None or story.status not in PUBLISHED:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Story not found")
-    return to_story_detail(db, story).model_dump()
+    return to_reader_detail(db, story).model_dump()
 
 
 @router.get("/story/by-slug/{slug}", dependencies=[Depends(rate_limit)])
@@ -161,7 +162,7 @@ def story_by_slug(slug: str, db: Session = Depends(get_db)) -> Any:
     ).scalar_one_or_none()
     if story is None or story.status not in PUBLISHED:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Story not found")
-    return to_story_detail(db, story).model_dump()
+    return to_reader_detail(db, story).model_dump()
 
 
 @router.get("/search", response_model=Page, dependencies=[Depends(rate_limit)])
@@ -182,7 +183,7 @@ def search(request: Request, db: Session = Depends(get_db),
     candidates = [story.headline_te or story.headline_en or story.slug for story in rows]
     ranked = rank_by_similarity(q, candidates)
     matched = [rows[index] for index, score in ranked if score > 0.08][:limit]
-    items = [to_story_card(db, story, language=language).model_dump() for story in matched]
+    items = [to_reader_card(db, story, language=language).model_dump() for story in matched]
     return paginate(items, len(items), 1, limit)
 
 
@@ -266,7 +267,7 @@ def list_bookmarks(device_id: str = Query(..., min_length=6, max_length=120),
     total = db.execute(select(func.count()).select_from(query.subquery())).scalar_one()
     rows = db.execute(query.order_by(Bookmark.created_at.desc())
                       .offset((page - 1) * page_size).limit(page_size)).scalars().all()
-    items = [to_story_card(db, story).model_dump() for story in rows]
+    items = [to_reader_card(db, story).model_dump() for story in rows]
     return paginate(items, total, page, page_size)
 
 

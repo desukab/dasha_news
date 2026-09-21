@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 
 from newsroom.api.schemas import (
     FactView,
+    ReaderStoryCard,
+    ReaderStoryDetail,
     SourceLinkView,
     StoryCard,
     StoryDetail,
@@ -240,6 +242,57 @@ def to_story_detail(session: Session, story) -> StoryDetail:
     return detail
 
 
+# ---------------------------------------------------------------------------
+# The reader's serializers.
+#
+# These take the same story and return less of it. Nothing is recomputed and
+# nothing is re-derived: the fields are a subset of the card above, so the two
+# can never disagree about what a story *is* -- only about how much of the
+# newsroom's reasoning to show alongside it.
+# ---------------------------------------------------------------------------
+
+
+def to_reader_card(session: Session, story, *, language: str = "te",
+                   rendered: Optional[Dict[str, Dict[str, Optional[str]]]] = None
+                   ) -> ReaderStoryCard:
+    labels = section_labels(story.section)
+    rendered = rendered or story_language(story)
+    return ReaderStoryCard(
+        id=story.id,
+        cluster_id=story.cluster_id,
+        slug=story.slug,
+        headline_te=rendered["te"]["headline"],
+        headline_ten=rendered["ten"]["headline"],
+        headline_en=rendered["en"]["headline"],
+        lead_te=rendered["te"]["lead"],
+        section=story.section,
+        section_label_te=labels["te"],
+        section_label_en=labels["en"],
+        status=story.status,
+        status_label_te=story_status_label_te(story.status),
+        district=story.district,
+        mandal=story.mandal,
+        state=story.state,
+        is_breaking=bool(story.is_breaking),
+        is_developing=bool(story.is_developing),
+        image_url=story.primary_image_url,
+        audio_url=_audio_url(session, story.id),
+        has_audio=_audio_url(session, story.id) is not None,
+        published_at=story.published_at.isoformat() if story.published_at else None,
+        updated_at=story.updated_at.isoformat() if story.updated_at else None,
+    )
+
+
+def to_reader_detail(session: Session, story) -> ReaderStoryDetail:
+    rendered = story_language(story)
+    return ReaderStoryDetail(
+        **to_reader_card(session, story, rendered=rendered).model_dump(),
+        body_te=rendered["te"]["body"],
+        body_ten=rendered["ten"]["body"],
+        body_en=rendered["en"]["body"],
+    )
+
+
 def _evidence_level(value: Optional[str]) -> Optional[EvidenceLevel]:
     try:
         return EvidenceLevel(value) if value else None
@@ -278,16 +331,16 @@ def _region(session: Session, query, *, language: str, asked: Optional[str],
     returned (with `asked`) so the reader can see which question went
     unanswered rather than being handed a region full of the wrong stories.
     """
-    from newsroom.api.schemas import RegionPage
+    from newsroom.api.schemas import ReaderRegionPage
 
     candidates = session.execute(query.limit(_FRONT_CANDIDATES)).scalars().all()
     rendered = {story.id: story_language(story) for story in candidates}
     served = [story for story in candidates
               if serves_language(rendered[story.id], language)]
     rows = served[:page_size]
-    items = [to_story_card(session, story, language=language, rendered=rendered[story.id])
+    items = [to_reader_card(session, story, language=language, rendered=rendered[story.id])
              .model_dump() for story in rows]
-    return RegionPage(
+    return ReaderRegionPage(
         items=items,
         total=len(served),
         asked=asked,
@@ -311,7 +364,7 @@ def to_front_page(session: Session, *, language: str = "te",
     app asks the reader for a district instead of quietly showing the whole
     state under a local label.
     """
-    from newsroom.api.schemas import FrontPage
+    from newsroom.api.schemas import ReaderFrontPage
 
     published = Story.status.in_(("published", "auto_published",
                                   "developing", "breaking", "corrected"))
@@ -337,7 +390,7 @@ def to_front_page(session: Session, *, language: str = "te",
     ).order_by(Story.is_breaking.desc(), Story.importance.desc(),
                Story.published_at.desc())
 
-    return FrontPage(
+    return ReaderFrontPage(
         now=_region(session, now_q, language=language, asked="now",
                     page_size=page_size),
         near=_region(session, near_q, language=language, asked=district,
