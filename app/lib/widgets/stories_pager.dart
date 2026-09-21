@@ -6,6 +6,7 @@ import '../core/format.dart';
 import '../core/theme.dart';
 import '../models/story.dart';
 import '../state/app_state.dart';
+import '../state/audio_controller.dart';
 
 /// A full-bleed vertical pager of short-form cards.
 ///
@@ -53,6 +54,7 @@ class _ShortCard extends StatelessWidget {
     final headline = story.headline(app.locale);
     final image = story.imageFor(app.baseUrl);
     final hasImage = image != null;
+    final minutes = readingTime(story.body(app.locale));
 
     return GestureDetector(
       onTap: onTap,
@@ -106,7 +108,7 @@ class _ShortCard extends StatelessWidget {
                         _tag(context, strings.developing,
                             SemanticColour.developing.badge),
                       const Spacer(),
-                      if (story.hasAudio)
+                      if (context.watch<AudioController>().canSpeak(story))
                         Container(
                           padding: const EdgeInsets.all(7),
                           decoration: const BoxDecoration(
@@ -167,10 +169,7 @@ class _ShortCard extends StatelessWidget {
                             else if (story.isDeveloping)
                               _chip(strings.developing, null),
                             const SizedBox(width: 8),
-                            _chip(
-                                strings.reading,
-                                '${readingTime(story.body(app.locale))} '
-                                    '${strings.minRead}'),
+                            _chip(null, strings.readingTime(minutes)),
                             const Spacer(),
                             Text(
                               relativeTime(story.publishedAt,
@@ -212,7 +211,7 @@ class _ShortCard extends StatelessWidget {
     );
   }
 
-  Widget _chip(String label, String? value) {
+  Widget _chip(String? label, String? value) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
@@ -233,14 +232,15 @@ class _ShortCard extends StatelessWidget {
             ),
             const SizedBox(width: 4),
           ],
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+          if (label != null)
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
         ],
       ),
     );

@@ -55,4 +55,19 @@ void main() {
       );
     });
   });
+
+  group('the reading-time line', () {
+    test('is one phrase, not two languages in one chip', () {
+      expect(const AppStrings('te').readingTime('2'),
+          'చదవడానికి 2 నిమిషాలు');
+      // Telugu's duration follows its verb and English's leads it, so the two
+      // cannot be assembled from shared fragments.
+      expect(const AppStrings('en').readingTime('2'), '2 min read');
+    });
+
+    test('Tenglish takes the Latin phrase, which its readers can read', () {
+      expect(const AppStrings('ten').readingTime('2'), '2 min read');
+      expect(const AppStrings('ten').readingTime('2'), isNot(contains('నిమిష')));
+    });
+  });
 }

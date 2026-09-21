@@ -20,10 +20,10 @@ import '../state/audio_controller.dart';
 /// to a paragraph — is what makes a short-news app into a paper.
 ///
 /// What the screen carries is deliberately small: where it happened, when, the
-/// headline, a summary the desk can file in sixty words, and the names of the
-/// outlets that reported it. The desk's own machinery stays off the reader's
-/// screen; a reader who wants the reasoning behind a story goes to the desk's
-/// tool, and a reader who wants the story stays here.
+/// headline, and a summary the desk can file in sixty words. The desk's own
+/// machinery stays off the reader's screen; a reader who wants the reasoning
+/// behind a story goes to the desk's tool, and a reader who wants the story
+/// stays here.
 class SwipeStoryView extends StatelessWidget {
   const SwipeStoryView({
     super.key,
@@ -206,9 +206,9 @@ class SwipeStoryView extends StatelessWidget {
     );
   }
 
-  /// Where and when, and how many outlets are behind it. The count is the one
-  /// number a short-news reader gets, and it is the one that means something:
-  /// two independent outlets is a different story from one.
+  /// Where and when. The place is the answer the stream exists to give, and
+  /// the time is relative, because "two hours ago" is what a reader can act
+  /// on.
   Widget _attribution(BuildContext context, AppStrings strings) {
     final theme = Theme.of(context);
     final place = story.mandal ?? story.district;
@@ -281,20 +281,21 @@ class SwipeStoryView extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
           child: Row(
             children: [
-              _ActionButton(
-                icon: playing
-                    ? Icons.pause_rounded
-                    : Icons.headphones_rounded,
-                label: strings.listen,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  if (playing) {
-                    audio.pause();
-                  } else {
-                    audio.play(story);
-                  }
-                },
-              ),
+              if (audio.canSpeak(story))
+                _ActionButton(
+                  icon: playing
+                      ? Icons.pause_rounded
+                      : Icons.headphones_rounded,
+                  label: strings.listen,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    if (playing) {
+                      audio.pause();
+                    } else {
+                      audio.play(story);
+                    }
+                  },
+                ),
               const Spacer(),
               _ActionButton(
                 icon: saved

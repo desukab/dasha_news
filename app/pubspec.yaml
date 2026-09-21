@@ -18,14 +18,14 @@ dependencies:
   shared_preferences: ^2.3.2
   # Image loading with caching and placeholders (MIT).
   cached_network_image: ^3.4.1
-  # Opening the original source report in the browser (BSD-3-Clause).
-  url_launcher: ^6.3.1
   # Date / number formatting (BSD-3-Clause).
   intl: ^0.20.1
   # Online / offline detection (BSD-3-Clause).
   connectivity_plus: ^6.1.0
-  # Audio playback for the read-aloud edition (MIT).
-  just_audio: ^0.9.43
+  # Read-aloud in the voice the reader's phone already has (MIT). The
+  # newsroom still renders an espeak edition for the archive, but espeak is the
+  # robot voice, so the app speaks the story itself.
+  flutter_tts: ^4.2.5
   # App version reporting (BSD-3-Clause).
   package_info_plus: ^8.1.1
   # App filesystem locations (BSD-3-Clause).

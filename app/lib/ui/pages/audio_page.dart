@@ -50,8 +50,9 @@ class _AudioPageState extends TabPageState<AudioPage> {
     if (!mounted) return;
     final audio = context.read<AudioController>();
     // Resume whatever was playing, if it is still in this edition.
-    if (audio.nowPlaying == null && _list.items.any((s) => s.hasAudio)) {
-      await audio.play(_list.items.firstWhere((s) => s.hasAudio));
+    final speakable = _list.items.where(audio.canSpeak).toList();
+    if (audio.nowPlaying == null && speakable.isNotEmpty) {
+      await audio.play(speakable.first);
     }
   }
 
@@ -113,7 +114,9 @@ class _AudioPageState extends TabPageState<AudioPage> {
     return AnimatedBuilder(
       animation: _list,
       builder: (context, _) {
-        final narrated = _list.items.where((s) => s.hasAudio).toList();
+        final narrated = _list.items
+            .where(context.watch<AudioController>().canSpeak)
+            .toList();
         if (_list.isLoading && _list.items.isEmpty) {
           return const LoadingView();
         }

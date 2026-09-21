@@ -5,6 +5,7 @@ import '../../core/api_client.dart';
 import '../../core/error_message.dart';
 import '../../models/story.dart';
 import '../../state/app_state.dart';
+import '../../state/audio_controller.dart';
 import '../../state/history_recorder.dart';
 import '../../widgets/states_view.dart';
 import '../../widgets/stories_pager.dart';
@@ -56,7 +57,8 @@ class _ShortsPageState extends State<ShortsPage> {
       );
       if (!mounted) return;
       // Only stories the newsroom actually produced a short for.
-      final shorts = page.items.where(_hasShort).toList();
+      final audio = context.read<AudioController>();
+      final shorts = page.items.where((s) => _hasShort(s, audio)).toList();
       setState(() {
         _stories = shorts;
         _loading = false;
@@ -73,9 +75,11 @@ class _ShortsPageState extends State<ShortsPage> {
 
   /// A short is signalled by a poster frame plus the media entry. The feed
   /// does not yet carry a dedicated flag, so we infer from the media kinds the
-  /// newsroom can serve.
-  bool _hasShort(Story story) {
-    return story.imageUrl != null && (story.hasAudio || story.isBreaking);
+  /// newsroom can serve: a picture, and either a breaking tag or a story the
+  /// reader's phone can read aloud.
+  bool _hasShort(Story story, AudioController audio) {
+    return story.imageUrl != null &&
+        (story.isBreaking || audio.canSpeak(story));
   }
 
   @override

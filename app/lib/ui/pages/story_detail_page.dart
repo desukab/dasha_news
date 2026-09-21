@@ -120,7 +120,8 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                   _headline(context, app, strings),
                   _byline(context, app, strings),
                   if (_story.imageUrl != null) _heroImage(context, app),
-                  if (_story.hasAudio) _listenBar(context, audio, strings),
+                  if (audio.canSpeak(_story))
+                    _listenBar(context, audio, strings),
                   _body(context, app, strings),
                   const SliverToBoxAdapter(child: SizedBox(height: 32)),
                 ],
@@ -249,7 +250,8 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
             _meta(
                 context,
                 Icons.menu_book_rounded,
-                '${readingTime(_story.body(app.locale))} ${strings.minRead}'),
+                strings.readingTime(
+                    readingTime(_story.body(app.locale)))),
           ],
         ),
       ),

@@ -49,7 +49,6 @@ class AppStrings {
       regionIndiaWorld: 'భారతదేశం & ప్రపంచం',
       nearNeedsDistrict: 'మీ ప్రాంతాన్ని ఎంచుకోండి',
       nearNeedsDistrictHint: 'మీ జిల్లాలో జరుగుతున్న వార్తలను చూడటానికి',
-      reading: 'చదువుతున్నారు',
       saveStory: 'సేవ్ చేయండి',
       savedStory: 'సేవ్ అయింది',
       shareStory: 'షేర్ చేయండి',
@@ -59,7 +58,6 @@ class AppStrings {
       listen: 'వినండి',
       pause: 'ఆపండి',
       resume: 'కొనసాగించండి',
-      minRead: 'నిమిషాలు',
       justNow: 'ఇప్పుడే',
       minutesAgo: 'నిమిషాల క్రితం',
       hoursAgo: 'గంటల క్రితం',
@@ -144,7 +142,6 @@ class AppStrings {
       regionIndiaWorld: 'India & World',
       nearNeedsDistrict: 'Choose your area',
       nearNeedsDistrictHint: 'To see what is happening in your district',
-      reading: 'reading',
       saveStory: 'Save',
       savedStory: 'Saved',
       shareStory: 'Share',
@@ -154,7 +151,6 @@ class AppStrings {
       listen: 'Listen',
       pause: 'Pause',
       resume: 'Resume',
-      minRead: 'min read',
       justNow: 'just now',
       minutesAgo: 'min ago',
       hoursAgo: 'h ago',
@@ -244,7 +240,6 @@ class AppStrings {
   String get regionIndiaWorld => _lang.regionIndiaWorld;
   String get nearNeedsDistrict => _lang.nearNeedsDistrict;
   String get nearNeedsDistrictHint => _lang.nearNeedsDistrictHint;
-  String get reading => _lang.reading;
   String get saveStory => _lang.saveStory;
   String get savedStory => _lang.savedStory;
   String get shareStory => _lang.shareStory;
@@ -261,7 +256,6 @@ class AppStrings {
   String get listen => _lang.listen;
   String get pause => _lang.pause;
   String get resume => _lang.resume;
-  String get minRead => _lang.minRead;
   String get justNow => _lang.justNow;
   String get minutesAgo => _lang.minutesAgo;
   String get hoursAgo => _lang.hoursAgo;
@@ -329,6 +323,18 @@ class AppStrings {
 
   /// The languages the picker offers, in the paper's own order.
   static List<String> get pickerChoices => supportedLocales;
+
+  /// How long a story takes to read, as one phrase rather than two halves.
+  ///
+  /// Telugu and English do not share an order for this: the duration follows
+  /// the verb in Telugu ("చదవడానికి 2 నిమిషాలు" — two minutes to read) and leads it
+  /// in English, so composing it from fragments put both languages' words in
+  /// one chip. Tenglish is Roman letters, so it takes the Latin phrase.
+  String readingTime(String minutes) {
+    return code == 'te'
+        ? 'చదవడానికి $minutes నిమిషాలు'
+        : '$minutes min read';
+  }
 }
 
 class _Lang {
@@ -360,7 +366,6 @@ class _Lang {
     required this.regionIndiaWorld,
     required this.nearNeedsDistrict,
     required this.nearNeedsDistrictHint,
-    required this.reading,
     required this.saveStory,
     required this.savedStory,
     required this.shareStory,
@@ -370,7 +375,6 @@ class _Lang {
     required this.listen,
     required this.pause,
     required this.resume,
-    required this.minRead,
     required this.justNow,
     required this.minutesAgo,
     required this.hoursAgo,
@@ -452,7 +456,6 @@ class _Lang {
   final String regionIndiaWorld;
   final String nearNeedsDistrict;
   final String nearNeedsDistrictHint;
-  final String reading;
   final String saveStory;
   final String savedStory;
   final String shareStory;
@@ -462,7 +465,6 @@ class _Lang {
   final String listen;
   final String pause;
   final String resume;
-  final String minRead;
   final String justNow;
   final String minutesAgo;
   final String hoursAgo;

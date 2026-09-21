@@ -67,10 +67,6 @@ class AudioBar extends StatelessWidget {
                     ),
                   ),
                 ),
-                _skip(context, audio, Icons.replay_10_rounded,
-                    audio.skipBackward),
-                _skip(context, audio, Icons.forward_10_rounded,
-                    audio.skipForward),
                 _stop(context, audio, app.strings),
               ],
             ),
@@ -98,16 +94,6 @@ class AudioBar extends StatelessWidget {
       iconSize: 30,
       onPressed: audio.isPlaying ? audio.pause : audio.resume,
       color: Theme.of(context).colorScheme.primary,
-    );
-  }
-
-  Widget _skip(BuildContext context, AudioController audio, IconData icon,
-      Future<void> Function() action) {
-    return IconButton(
-      icon: Icon(icon),
-      iconSize: 22,
-      onPressed: action,
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
     );
   }
 
