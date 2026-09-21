@@ -591,14 +591,14 @@ def _write_story(session: Session, story: Story, source: Source,
         for fact in facts
     ]
     coverage: List[str] = []
-    # Telugu and English are the two languages the desk and its sources
-    # actually write. Tenglish -- Telugu in Roman letters -- is a real register
-    # on the ground, but nobody files it: it can only be produced by
-    # transliterating Telugu script, and mechanical transliteration is neither
-    # Telugu nor English. Serving that output put garbled vowel-stripped lines
-    # in front of readers, so it is not rendered, and the column stays empty
-    # until an editor writes it by hand.
-    for language in ("te", "en"):
+    # Telugu, Tenglish and English. Tenglish -- Telugu in the Roman alphabet --
+    # is a register readers actually write in, and it is produced by
+    # romanising the Telugu line rather than by composing a second one: the
+    # names in it keep the spelling a reader uses (Hyderabad, KCR, BRS) and the
+    # sentence keeps its Telugu grammar. The language gate below still refuses
+    # a column whose script does not agree with its label, so an English
+    # sentence cannot reach the Tenglish column through the romaniser either.
+    for language in ("te", "ten", "en"):
         try:
             headline_draft = write_headline(
                 fact_views, language=language, district=story.district,

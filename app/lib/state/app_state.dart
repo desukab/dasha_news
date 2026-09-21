@@ -92,18 +92,6 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// A reader who picked Tenglish before the register was withdrawn is moved
-  /// to Telugu, not left on a language the paper no longer publishes in. The
-  /// stored value is corrected too, so a cached front page fetched in 'ten'
-  /// is treated as the stale-language cache it is rather than being shown.
-  String _migratedLocale(String stored) {
-    if (stored == 'ten') {
-      storage.setLocale('te');
-      return 'te';
-    }
-    return stored;
-  }
-
   /// Loads persisted preferences and the server catalogues.
   ///
   /// Catalogue failures are never fatal: the app can render a feed without
@@ -113,7 +101,7 @@ class AppState extends ChangeNotifier {
     if (_initialised) return;
     _baseUrl = _resolveBaseUrl(storage);
     _api.baseUrl = _baseUrl;
-    _locale = _migratedLocale(storage.locale);
+    _locale = storage.locale;
     _themeMode = storage.themeMode;
     _breakingAlerts = storage.breakingAlerts;
     _dailyDigest = storage.dailyDigest;

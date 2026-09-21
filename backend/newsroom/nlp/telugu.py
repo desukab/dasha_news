@@ -338,3 +338,209 @@ def strip_dangling_vowel_signs(text: Optional[str]) -> str:
         out.append(char)
         previous_was_consonant = is_telugu_char(char) and char not in TELUGU_VOWEL_SIGNS
     return "".join(out)
+
+
+# ---------------------------------------------------------------------------
+# Tenglish: Telugu text in the Roman alphabet
+# ---------------------------------------------------------------------------
+
+# Names a Telugu reader writes in one fixed Roman form. Transliteration is a
+# syllable-by-syllable process and cannot know that "హైదరాబాద్" is *Hyderabad*
+# and not "haidarabad", or that "కేసీఆర్" is *KCR* and not "keseeaar": both are
+# single words in Telugu script and both come out of the letter loop as
+# themselves. A reader who writes Tenglish writes the established spelling, so
+# the lexicon is applied before transliteration and only the rest of the
+# sentence is romanised. Scope is deliberately what a Telangana paper writes
+# about -- the state's places, its parties, its politicians and the acronyms
+# its institutions go by.
+_NAMED_ENTITIES: dict[str, str] = {
+    # Telangana: state, capital, districts and the towns that lead the wire.
+    "తెలంగాణా": "Telangana", "తెలంగాణ": "Telangana",
+    "హైదరాబాదు": "Hyderabad", "హైదరాబాద్": "Hyderabad",
+    "హైదరాబాద": "Hyderabad",
+    "సికింద్రాబాదు": "Secunderabad", "సికింద్రాబాద్": "Secunderabad",
+    "హుస్సేన్‌సాగర్": "Hussain Sagar", "హుస్సేన్సాగర్": "Hussain Sagar",
+    "చార్మినార్": "Charminar", "గోల్కొండ": "Golconda",
+    "వరంగల్లు": "Warangal", "వరంగల్": "Warangal", "హనుమకొండ": "Hanamkonda",
+    "నిజామాబాదు": "Nizamabad", "నిజామాబాద్": "Nizamabad",
+    "ఖమ్మం": "Khammam", "కరీంనగర్": "Karimnagar", "కరీంనగరం": "Karimnagar",
+    "మహబూబ్‌నగర్": "Mahabubnagar", "మహబూబ్నగర్": "Mahabubnagar",
+    "మెదక్": "Medak", "నల్గొండ": "Nalgonda", "నల్గొండజిల్లా": "Nalgonda",
+    "ఆదిలాబాద్": "Adilabad", "రంగారెడ్డి": "Ranga Reddy",
+    "మేడ్చల్": "Medchal", "వికారాబాద్": "Vikarabad",
+    "జగిత్యాల": "Jagtial", "పెద్దపల్లి": "Peddapalli",
+    "సూర్యాపేట": "Suryapet", "కామారెడ్డి": "Kamareddy",
+    "భువనగిరి": "Bhuvanagiri", "సిరిసిల్ల": "Sircilla",
+    "కొత్తగూడెం": "Kothagudem", "గద్వాల్": "Gadwal",
+    "నారాయణపేట": "Narayanpet", "ములుగు": "Mulugu",
+    "సంగారెడ్డి": "Sangareddy", "సంగారెడ్డిజిల్లా": "Sangareddy",
+    "సిద్దిపేట": "Siddipet", "సిద్ధిపేట": "Siddipet",
+    "మెదక్‌జిల్లా": "Medak", "నిజామాబాద్జిల్లా": "Nizamabad",
+    # Rivers and hills that a district story is filed from.
+    "గోదావరి": "Godavari", "కృష్ణా": "Krishna", "మూసీ": "Musi",
+    "తుంగభద్ర": "Tungabhadra", "నాగార్జునసాగర్": "Nagarjuna Sagar",
+    "శ్రీశైలం": "Srisailam", "భద్రాచలం": "Bhadrachalam",
+    # Parties: their Telugu names are long enough that a reader abbreviates.
+    "భారతీయజనతాపార్టీ": "BJP", "బీజేపీ": "BJP",
+    "భారతీయ జనతా పార్టీ": "BJP", "బీజేపీకి": "BJP",
+    "కాంగ్రెస్పార్టీ": "Congress", "కాంగ్రెస్": "Congress",
+    "కాంగ్రెస్‌పార్టీ": "Congress",
+    "తెలంగాణరాష్ట్రసమితి": "BRS", "తెలంగాణ రాష్ట్ర సమితి": "BRS",
+    "బీఆర్ఎస్": "BRS", "బీఆర్‌ఎస్": "BRS",
+    "టీఆర్ఎస్": "TRS", "టీడీపీ": "TDP", "తెలుగుదేశంపార్టీ": "TDP",
+    "వైసీపీ": "YCP", "వైఎస్ఆర్": "YSR", "వైఎస్ఆర్కాంగ్రెస్": "YSR Congress",
+    "జనసేన": "Jana Sena", "జనసేనపార్టీ": "Jana Sena",
+    "ఎంఐఎం": "MIM", "సిపిఎం": "CPM", "సిపిఐ": "CPI", "ఎఎంసీ": "AIMIM",
+    # Politicians, by the names they are filed under.
+    "కేసీఆర్": "KCR", "కేసీఆర్‌": "KCR",
+    "కల్వకుంట్లచంద్రశేఖరరావు": "K. Chandrasekhar Rao",
+    "కల్వకుంట్ల చంద్రశేఖర్ రావు": "K. Chandrasekhar Rao",
+    "చంద్రశేఖరరావు": "Chandrasekhar Rao",
+    "కేటీఆర్": "KTR", "కేటీఆర్‌": "KTR",
+    "కేటీఆర్రామారావు": "K. T. Rama Rao",
+    "హరీష్రావు": "Harish Rao", "హరీష్ రావు": "Harish Rao",
+    "రేవంత్రెడ్డి": "Revanth Reddy", "రేవంత్ రెడ్డి": "Revanth Reddy",
+    "అనుములరేవంత్రెడ్డి": "A. Revanth Reddy",
+    "ముఖ్యమంత్రిరేవంత్రెడ్డి": "CM Revanth Reddy",
+    "జగన్": "Jagan", "జగన్మోహన్రెడ్డి": "Jagan Mohan Reddy",
+    "చంద్రబాబు": "Chandrababu", "నారాచంద్రబాబు": "N. Chandrababu",
+    "పవన్కళ్యాణ్": "Pawan Kalyan", "పవన్ కళ్యాణ్": "Pawan Kalyan",
+    "లోకేష్": "Lokesh", "నారాలోకేష్": "Nara Lokesh",
+    "అసదుద్దీన్ఒవైసీ": "Asaduddin Owaisi",
+    "అసదుద్దీన్ ఒవైసీ": "Asaduddin Owaisi",
+    # Institutions, by the initials every report uses.
+    "జీహెచ్ఎంసీ": "GHMC", "జీహెచ్ఎంసీకి": "GHMC",
+    "ఆర్టీసీ": "RTC", "టీఎస్ఆర్టీసీ": "TSRTC",
+    "హైకోర్టు": "High Court", "సుప్రీంకోర్టు": "Supreme Court",
+    "కోర్టు": "Court", "జైలు": "Jail", "జైలుకు": "Jail",
+    "శాసనసభ": "Assembly", "పార్లమెంట్": "Parliament",
+    "ఎన్నికలు": "Elections", "ఎన్నికలకు": "Elections",
+    "పార్టీ": "party", "పార్టీలు": "parties",
+    "మృతి": "mrithi", "మృతిచెందారు": "died", "మరణించారు": "passed away",
+    "నియోజకవర్గం": "Constituency",
+    "పంచాయతీ": "Panchayat", "పంచాయతి": "Panchayat",
+    "మున్సిపాలిటీ": "Municipality", "మున్సిపల్": "Municipality",
+    "ఎస్పీ": "SP", "డీఎస్పీ": "DSP", "ఎస్ఐ": "SI", "సిఐ": "CI",
+    "ఎంపీ": "MP", "ఎమ్మెల్యే": "MLA", "ఎమ్మెల్సీ": "MLC",
+    "పోలీసులు": "Police", "పోలీస్": "Police", "పోలీసు": "Police",
+    "అరెస్ట్": "arrest", "వారంట్": "warrant", "కేసు": "case",
+    "పోలీస్‌స్టేషన్": "Police Station", "పోలీస్స్టేషన్": "Police Station",
+    "ప్రభుత్వం": "Government", "ప్రభుత్వము": "Government",
+    "ముఖ్యమంత్రి": "CM", "మంత్రి": "Minister",
+    "అధికారులు": "Officials", "అధికారి": "Official",
+    "ఇంజనీర్లు": "Engineers", "విద్యార్థులు": "Students",
+    "రైతులు": "Farmers", "కార్మికులు": "Workers",
+    "విద్యుత్": "Power", "నీటిపారుదల": "Irrigation", "రాహిత్యం": "Health",
+    # Money, measures and the calendar: numbers are where a reader most needs
+    # the familiar word, because the numeral itself never transliterates.
+    "రూపాయలు": "rupees", "రూపాయలను": "rupees", "రూపాయలుగా": "rupees",
+    "రూ": "Rs",
+    "రూపాయి": "rupee", "లక్షలు": "lakh", "లక్ష": "lakh",
+    "కోట్లు": "crore", "కోటి": "crore", "కోట్లరూపాయలు": "crore rupees",
+    "వేలం": "auction", "వేలు": "thousand", "వేల": "thousand",
+    "శాతం": "percent", "శాతాలు": "percent",
+    "కిలోమీటర్లు": "km", "మీటర్లు": "metres",
+    "ఎకరాలు": "acres", "టన్నులు": "tonnes",
+    "జనవరి": "January", "ఫిబ్రవరి": "February", "మార్చి": "March",
+    "ఏప్రిల్": "April", "మే": "May", "జూన్": "June", "జులై": "July",
+    "ఆగస్టు": "August", "సెప్టెంబర్": "September", "అక్టోబర్": "October",
+    "నవంబర్": "November", "డిసెంబర్": "December",
+    "సోమవారం": "Monday", "మంగళవారం": "Tuesday", "బుధవారం": "Wednesday",
+    "గురువారం": "Thursday", "శుక్రవారం": "Friday",
+    "శనివారం": "Saturday", "ఆదివారం": "Sunday",
+    "నేటి": "today", "నిన్న": "yesterday", "రేపు": "tomorrow",
+    "ఈరోజు": "today", "నెల": "month", "సంవత్సరం": "year",
+    "వారం": "week", "గంటలు": "hours", "నిమిషాలు": "minutes",
+}
+
+# Telugu case endings a name carries inside a sentence: "హైదరాబాదులో" is
+# Hyderabad-in, "హైదరాబాదుకు" is Hyderabad-to. Matched on their own so the
+# name keeps the Roman spelling a reader writes and only the ending romanises
+# -- "Hyderabad lo", not "Hyderabadlo".
+_TELUGU_ENDINGS = (
+    "లోని", "లోను", "లోపల", "లో", "కే", "కు", "ని", "నె", "ను",
+    "పైన", "పై", "తో", "చేత", "వలన", "వలె", "వంటి", "కంటే",
+    "గురించి", "ద్వారా", "బయట", "లు", "న", "ఆ",
+)
+
+_TELUGU_ENDINGS_RE = "|".join(sorted(_TELUGU_ENDINGS, key=len, reverse=True))
+
+# Names are matched against a whitespace-stripped copy of the text (see
+# [_replace_named_entities]) because outlets write the same name joined
+# ("సుప్రీంకోర్టు") and split ("సుప్రీం కోర్టు"), and the lexicon can only
+# list one spelling of each. A name's internal spacing is not information --
+# the match is replaced as a unit -- so the keys are stored joined too.
+_ENTITY_KEYS = {"".join(key.split()): value for key, value in _NAMED_ENTITIES.items()}
+# The leading word-boundary guard is applied in [_replace_named_entities],
+# against the source's own spacing rather than the compact copy the pattern
+# sees -- otherwise two names the source kept apart would read as one word and
+# the second would be rejected as mid-word.
+_ENTITY_RE = re.compile(
+    r"("
+    + "|".join(sorted(_ENTITY_KEYS, key=len, reverse=True))
+    + r")(?:(" + _TELUGU_ENDINGS_RE + r")(?![ఀ-౿]))?",
+    re.UNICODE,
+)
+_ZWNJ_RE = re.compile("‌")
+
+
+def _replace_named_entities(text: str) -> str:
+    """Swap in the Roman forms a reader writes, leaving the sentence to romanise."""
+    if not text:
+        return text
+    # ZWNJs between a name and its ending are typography, not speech; the char
+    # loop drops them but the pattern has to see the letters adjacent.
+    source = _ZWNJ_RE.sub("", text)
+
+    # The compact copy the pattern sees, with the original position of every
+    # surviving character so the replacement can be stitched back onto the
+    # source's own spacing.
+    chars: List[str] = []
+    origin: List[int] = []
+    for position, char in enumerate(source):
+        if not char.isspace():
+            chars.append(char)
+            origin.append(position)
+    compact = "".join(chars)
+    if not compact:
+        return source
+
+    def substitute(match: "re.Match[str]") -> str:
+        ending = match.group(2)
+        return _ENTITY_KEYS[match.group(1)] + (" " + ending if ending else "")
+
+    out: List[str] = []
+    copied = 0
+    for match in _ENTITY_RE.finditer(compact):
+        begin = origin[match.start()]
+        # A name is only a name where it starts a word. The compact copy would
+        # let it match mid-word, which turns a longer compound into an English
+        # name plus a leftover stump, so the guard uses the source instead: a
+        # name preceded by a letter is part of that word and is left alone.
+        if begin and source[begin - 1].isalnum():
+            continue
+        out.append(source[copied:begin])
+        out.append(substitute(match))
+        copied = origin[match.end() - 1] + 1
+    out.append(source[copied:])
+    return "".join(out)
+
+
+def to_tenglish(text: Optional[str]) -> str:
+    """Telugu script written the way a Telugu reader types it.
+
+    Roman Telugu with the names readers actually use: *Hyderabad*, *KCR*,
+    *BRS*, *Warangal*. Anything mechanical transliteration cannot spell is
+    fixed by [_NAMED_ENTITIES] first, then the rest of the sentence is
+    romanised by [transliterate_to_tenglish].
+
+    Returns an empty string when the source is not Telugu script: Tenglish is a
+    *reading* of Telugu, so an English sentence has no Roman-Telugu form and
+    serving it as one is how English reached this column before. The caller
+    withholds the field.
+    """
+    if not text:
+        return ""
+    if telugu_ratio(text) < 0.3:
+        return ""
+    return transliterate_to_tenglish(_replace_named_entities(text))

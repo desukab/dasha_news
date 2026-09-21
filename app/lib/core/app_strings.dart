@@ -320,12 +320,14 @@ class AppStrings {
     switch (code) {
       case 'te':
         return 'తెలుగు';
+      case 'ten':
+        return 'Tenglish';
       default:
         return 'English';
     }
   }
 
-  /// The two script-bearing languages, for the onboarding picker.
+  /// The languages the picker offers, in the paper's own order.
   static List<String> get pickerChoices => supportedLocales;
 }
 

@@ -5,9 +5,16 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from newsroom.config import get_settings
+from newsroom.nlp.telugu import (
+    latin_ratio,
+    split_sentences,
+    telugu_ratio,
+    word_count,
+)
 from newsroom.pipeline.editorial import (
     MAX_BODY_SENTENCES,
     MAX_BODY_WORDS,
+    MAX_HEADLINE_WORDS,
     write_article,
     write_headline,
 )
@@ -111,21 +118,44 @@ def test_headline_written_in_the_languages_the_paper_uses():
         assert draft.source in {"model", "heuristic"}
 
 
-def test_tenglish_is_withheld_not_generated():
-    # Tenglish is withheld rather than written: a machine transliterating
-    # Telugu script produces neither language, and nothing served from that
-    # column has ever been copy a person wrote. The column stays empty until
-    # an editor files a line in it. See orchestrator.render_story's language
-    # loop and api.views._renderable.
+def test_tenglish_is_a_reading_of_the_telugu_line():
+    # Tenglish is not a second composition: it is the Telugu line romanised,
+    # with the names in it spelled the way a reader writes them (Hyderabad,
+    # KCR, BRS). A machine asked to *write* Tenglish copy would only guess at
+    # a register it has no copy in, so the Telugu line is composed and the
+    # romaniser reads it. See nlp.telugu.to_tenglish.
+    headline = write_headline(_facts(), language="te", district="Hyderabad")
     draft = write_headline(_facts(), language="ten", district="Hyderabad")
-    assert draft.headline == ""
-    assert draft.body == ""
-    assert draft.warnings
-    # It is not Telugu script either: the register is withheld outright, not
-    # substituted with a language the reader did not ask for.
-    draft_article = write_article(
-        _facts(), language="ten", headline="x", district="Hyderabad")
-    assert draft_article.body == ""
+    assert draft.headline, "no Tenglish headline written"
+    assert draft.source == "heuristic"
+    # Roman Telugu, not Telugu script and not English: the shape gate is what
+    # keeps English-passing-as-Tenglish off the wire.
+    assert telugu_ratio(draft.headline) == 0.0
+    assert latin_ratio(draft.headline) > 0.5
+    # The two are the same line in two scripts.
+    assert word_count(draft.headline) == headline.words or \
+        word_count(draft.headline) <= MAX_HEADLINE_WORDS
+
+    article = write_article(
+        _facts(), language="ten", headline=draft.headline,
+        district="Hyderabad")
+    assert article.body, "no Tenglish body written"
+    assert telugu_ratio(article.body) == 0.0
+    assert word_count(article.body) <= MAX_BODY_WORDS
+    assert len(split_sentences(article.body)) <= MAX_BODY_SENTENCES
+
+
+def test_tenglish_withholds_english_facts():
+    # English romanised is still English. A story whose facts are in English
+    # has no Tenglish reading, and the column is left empty rather than being
+    # filled with English filed under the wrong label.
+    english_only = [ExtractedFact(text_te="Government announces new policy",
+                                  level="FACT", confidence=0.9,
+                                  attributed_to="official")]
+    assert write_headline(english_only, language="ten",
+                          district="Hyderabad").headline == ""
+    assert write_article(english_only, language="ten", headline="x",
+                         district="Hyderabad").body == ""
 
 
 def test_headline_needs_facts():

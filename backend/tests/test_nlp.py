@@ -12,6 +12,7 @@ from newsroom.nlp.telugu import (
     split_sentences,
     telugu_ratio,
     transliterate_to_tenglish,
+    to_tenglish,
     word_count,
 )
 
@@ -222,3 +223,153 @@ def test_language_gate_verdict_is_serialisable():
     verdict = validate_language("తెలంగాణ ముఖ్యమంత్రి", "te")
     assert verdict.to_dict() == {
         "ok": True, "detected": "te", "reason": "telugu script"}
+
+
+# ---------------------------------------------------------------------------
+# Tenglish: the Telugu line read in the Roman alphabet.
+#
+# The register is a *reading*, not a second composition. The names in it keep
+# the spelling a Telugu reader actually types -- Hyderabad, KCR, BRS -- rather
+# the syllable-by-syllable romanisation a machine would produce ("haidarabad",
+# "keseeaar"). The lexicon is applied before transliteration and the case
+# ending that follows a name is separated, so "హైదరాబాదులో" reads as
+# "Hyderabad lo" rather than "hyderabadulo".
+# ---------------------------------------------------------------------------
+
+_PLACES = {
+    "హైదరాబాద్": "Hyderabad",
+    "హైదరాబాద్‌లో": "Hyderabad lo",
+    "హైదరాబాదులో": "Hyderabad lo",
+    "సికింద్రాబాద్": "Secunderabad",
+    "వరంగల్లు": "Warangal",
+    "నిజామాబాద్": "Nizamabad",
+    "ఖమ్మం": "Khammam",
+    "కరీంనగర్": "Karimnagar",
+    "మహబూబ్‌నగర్": "Mahabubnagar",
+    "మెదక్": "Medak",
+    "నల్గొండ": "Nalgonda",
+    "ఆదిలాబాద్": "Adilabad",
+    "రంగారెడ్డి": "Ranga Reddy",
+    "మేడ్చల్": "Medchal",
+    "వికారాబాద్": "Vikarabad",
+    "సంగారెడ్డి": "Sangareddy",
+    "సిద్దిపేట": "Siddipet",
+    "జగిత్యాల": "Jagtial",
+    "కామారెడ్డి": "Kamareddy",
+    "భువనగిరి": "Bhuvanagiri",
+    "కొత్తగూడెం": "Kothagudem",
+    "గద్వాల్": "Gadwal",
+    "హనుమకొండ": "Hanamkonda",
+}
+
+
+def test_tenglish_reads_district_and_town_names():
+    for source, expected in _PLACES.items():
+        out = to_tenglish(source)
+        assert out, f"{source!r} produced nothing"
+        assert out == expected, f"{source!r}: expected {expected!r}, got {out!r}"
+        assert all(not is_telugu_char(c) for c in out)
+
+
+def test_tenglish_reads_parties_and_acronyms():
+    for source, expected in {
+        "బీఆర్ఎస్": "BRS",
+        "తెలంగాణరాష్ట్రసమితి": "BRS",
+        "భారతీయజనతాపార్టీ": "BJP",
+        "కాంగ్రెస్": "Congress",
+        "జనసేన": "Jana Sena",
+        "టీడీపీ": "TDP",
+        "జీహెచ్ఎంసీ": "GHMC",
+        "ఆర్టీసీ": "RTC",
+        "టీఎస్ఆర్టీసీ": "TSRTC",
+        "ఎస్పీ": "SP",
+        "ఎమ్మెల్యే": "MLA",
+        "ఎంపీ": "MP",
+    }.items():
+        out = to_tenglish(source)
+        assert expected in out, f"{source!r}: expected {expected!r} in {out!r}"
+
+
+def test_tenglish_reads_politicians_the_way_readers_write_them():
+    for source, expected in {
+        "కేసీఆర్": "KCR",
+        "కల్వకుంట్ల చంద్రశేఖరరావు": "K. Chandrasekhar Rao",
+        "కేటీఆర్": "KTR",
+        "హరీష్ రావు": "Harish Rao",
+        "రేవంత్ రెడ్డి": "Revanth Reddy",
+        "ముఖ్యమంత్రి రేవంత్ రెడ్డి": "CM Revanth Reddy",
+        "పవన్ కళ్యాణ్": "Pawan Kalyan",
+        "అసదుద్దీన్ ఒవైసీ": "Asaduddin Owaisi",
+    }.items():
+        out = to_tenglish(source)
+        assert expected in out, f"{source!r}: expected {expected!r} in {out!r}"
+
+
+def test_tenglish_reads_institutions_and_departments():
+    for source, expected in {
+        "సుప్రీం కోర్టు": "Supreme Court",
+        "హైకోర్టు": "High Court",
+        "శాసనసభ": "Assembly",
+        "పార్లమెంట్‌లో": "Parliament lo",
+        "పోలీసులు": "Police",
+        "ప్రభుత్వం": "Government",
+        "ముఖ్యమంత్రి": "CM",
+        "నీటిపారుదల": "Irrigation",
+        "ఎన్నికలు": "Elections",
+    }.items():
+        out = to_tenglish(source)
+        assert expected in out, f"{source!r}: expected {expected!r} in {out!r}"
+
+
+def test_tenglish_reads_money_dates_and_measures():
+    for source, expected in {
+        "రూ. 500 కోట్లు": "Rs. 500 crore",
+        "రూపాయలు": "rupees",
+        "లక్ష ఎకరాలు": "lakh acres",
+        "శాతం": "percent",
+        "కిలోమీటర్లు": "km",
+        "సెప్టెంబర్": "September",
+        "డిసెంబర్": "December",
+        "నేటి": "today",
+        "నిన్న": "yesterday",
+    }.items():
+        out = to_tenglish(source)
+        assert expected in out, f"{source!r}: expected {expected!r} in {out!r}"
+
+
+def test_tenglish_reads_sentences_not_just_names():
+    # A whole line, with the names carrying the reader spelling and the rest
+    # carrying Telugu grammar in Roman letters.
+    out = to_tenglish("ముఖ్యమంత్రి కేసీఆర్ హైదరాబాద్‌లో ప్రకటన చేశారు")
+    assert "KCR" in out
+    assert "Hyderabad" in out
+    assert all(not is_telugu_char(c) for c in out)
+    # The shape gate accepts it as Roman Telugu -- this is the register a
+    # reader writes in, so it must clear the same bar the wire applies.
+    assert validate_language(out, "ten").ok, f"{out!r} failed the shape gate"
+
+
+def test_tenglish_keeps_latin_that_was_already_latin():
+    # A Telugu line quoting an English name in Roman letters must not have that
+    # name dragged back through transliteration: "KCR" is already the reader's
+    # spelling, and re-reading it as Telugu consonants would break it.
+    out = to_tenglish("ముఖ్యమంత్రి KCR హైదరాబాద్‌లో ప్రకటన చేశారు")
+    assert "KCR" in out
+    assert "Hyderabad" in out
+    assert all(not is_telugu_char(c) for c in out)
+
+
+def test_tenglish_withholds_non_telugu_input():
+    # Tenglish is a reading of Telugu. An English sentence has no Roman-Telugu
+    # form, and returning it as-is is how English reached this column before.
+    assert to_tenglish("The government announced a new policy") == ""
+    assert to_tenglish("") == ""
+    assert to_tenglish(None) == ""
+
+
+def test_tenglish_leaves_the_telugu_column_alone():
+    # The reading is only ever written into the ten column: Telugu stays in
+    # Telugu script, the romaniser is not a translation of the column itself.
+    telugu = "హైదరాబాద్‌లో భారీ వర్షాలు"
+    assert to_tenglish(telugu) != telugu
+    assert telugu_ratio(to_tenglish(telugu)) == 0.0

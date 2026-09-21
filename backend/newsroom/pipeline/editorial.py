@@ -24,6 +24,7 @@ from newsroom.nlp.telugu import (
     split_sentences,
     strip_dangling_vowel_signs,
     telugu_ratio,
+    to_tenglish,
     truncate_sentences,
     word_boundary,
     word_count,
@@ -146,17 +147,16 @@ def write_headline(facts: Sequence[Any], *, language: str,
                    district: Optional[str], session=None,
                    story_id: Optional[int] = None) -> Draft:
     """Write one headline in the requested language."""
-    if language == "ten":
-        # Tenglish is withheld rather than written. See the orchestrator's
-        # language loop: Roman Telugu cannot be produced from Telugu script
-        # without becoming neither language, and no model is asked for it
-        # either, because a model guessing at a register it has no copy in
-        # produces the same vowel-stripped noise.
-        return Draft(language, "", "", "", 0, "heuristic",
-                     ["Tenglish is written by an editor, not generated; withheld"])
     if len(facts) < MIN_FACTS_TO_WRITE:
         return Draft(language, "", "", "", 0, "heuristic",
                      ["no facts available; nothing written"])
+    if language == "ten":
+        # Tenglish is a *reading* of the Telugu line, not a second opinion on
+        # it: the Roman form is fixed by how readers write the names in it, so
+        # a model asked for Tenglish copy would only guess at a register it has
+        # no copy in. The Telugu headline is composed and [to_tenglish]
+        # romanises it.
+        return _heuristic_headline(facts, "ten", district)
 
     if not is_heuristic():
         payload = _fact_payload(facts)
@@ -191,12 +191,14 @@ def _heuristic_headline(facts: Sequence[Any], language: str,
     if source_title and _source_only(facts):
         text = source_title
 
-    if language == "te" and telugu_ratio(text) < 0.3:
+    if language in ("te", "ten") and telugu_ratio(text) < 0.3:
         # Telugu script is the only source of a Telugu headline. The primary
         # fact of a story whose sources publish in English carries English in
         # text_te; publishing it as-is is how English reached the Telugu column.
+        # Tenglish is the same Telugu read in Roman letters, so it has the same
+        # requirement -- English romanised is still English.
         return Draft(language, "", "", "", 0, "heuristic",
-                     ["primary fact is not Telugu script; Telugu withheld"])
+                     [f"primary fact is not Telugu script; {language} withheld"])
 
     text = _clean_headline(text)
     if not text:
@@ -214,6 +216,8 @@ def _heuristic_headline(facts: Sequence[Any], language: str,
         text = " ".join(text.split()[:MAX_HEADLINE_WORDS]).rstrip("–|-| ")
     if language == "te":
         text = strip_dangling_vowel_signs(text)
+    elif language == "ten":
+        text = to_tenglish(text)
     if _CLICKBAIT.search(text):
         warnings.append("clickbait marker detected and retained; review recommended")
     return Draft(language, text.strip(), "", "", word_count(text), "heuristic", warnings)
@@ -261,10 +265,6 @@ def write_article(facts: Sequence[Any], *, language: str,
                   session=None, story_id: Optional[int] = None,
                   max_words: int = MAX_BODY_WORDS) -> Draft:
     """Write headline + lead + body in one language."""
-    if language == "ten":
-        # See write_headline: Roman Telugu is withheld, not manufactured.
-        return Draft(language, headline or "", "", "", 0, "heuristic",
-                     ["Tenglish is written by an editor, not generated; withheld"])
     if len(facts) < MIN_FACTS_TO_WRITE:
         return Draft(language, "", "", "", 0, "heuristic",
                      ["no facts available; nothing written"])
@@ -298,21 +298,28 @@ def _heuristic_article(facts: Sequence[Any], language: str,
         if not text:
             continue
         attribution = fact.attributed_to
-        if language == "te":
+        if language in ("te", "ten"):
             # Telugu script is the only source of a Telugu sentence. A
             # clustered story can carry an English fact alongside Telugu ones,
             # and composing the Telugu body from both yields one sentence of
             # each script in the same paragraph; the language gate measures
             # that as leakage and the reader sees it as a broken translation.
-            # The English fact still serves the en rendering.
+            # The English fact still serves the en rendering. Tenglish reads
+            # the Telugu sentence, so the same English fact is no more use to
+            # it in Roman letters than in script.
             if telugu_ratio(text) < 0.3:
                 continue
         if language == "en" and fact.text_en is None:
             continue
         if attribution and _needs_attribution(fact, language):
-            text = _attach_attribution(text, attribution, language)
+            # The attribution's Telugu tail romanises with the sentence; the
+            # outlet name is already Latin either way.
+            text = _attach_attribution(text, attribution,
+                                       "te" if language == "ten" else language)
         if language == "te":
             text = strip_dangling_vowel_signs(text)
+        elif language == "ten":
+            text = to_tenglish(text)
         sentences.append(text)
 
     if not sentences:

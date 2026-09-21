@@ -153,23 +153,27 @@ def test_detail_withholds_a_body_in_the_wrong_script(session, client):
     assert body["body_te"] is None
 
 
-def test_feed_withholds_tenglish_whether_or_not_the_line_is_roman_telugu(
+def test_feed_serves_roman_telugu_but_withholds_english_from_the_ten_column(
         session, client):
-    # The register is withheld wholesale: no classifier can separate mechanical
-    # transliteration from human Roman Telugu, so a line that passes the
-    # language gate is still not served. See api.views._renderable.
-    _story(session, headline_te="తెలుగు శీర్షిక",
-           headline_ten="ministers review the flood relief camps today")
-    _story(session, headline_te="తెలుగు శీర్షిక",
-           headline_ten="aichchikam cadivindi andaru kuurcunnaru")
-    assert client.get("/v1/feed?language=ten").json()["items"] == []
+    # Tenglish is a reading of Telugu, so the column is served when the line is
+    # genuinely Roman Telugu and withheld when it is English filed under the
+    # wrong label. See api.views._renderable.
+    english = _story(session, headline_te="తెలుగు శీర్షిక",
+                     headline_ten="ministers review the flood relief camps today")
+    roman = _story(session, headline_te="హైదరాబాద్‌లో కేసీఆర్ ప్రకటన చేశారు",
+                   headline_ten="Hyderabad lo KCR prakatana chesharu")
+    items = {item["id"]: item
+             for item in client.get("/v1/feed?language=ten").json()["items"]}
+    assert english.id not in items, "English was served from the ten column"
+    assert roman.id in items
+    assert items[roman.id]["headline_ten"] == "Hyderabad lo KCR prakatana chesharu"
 
 
 def test_feed_language_filter_keeps_the_story_in_every_language_it_is_in(
         session, client):
     _story(session, headline_te="తెలుగు శీర్షిక",
            headline_en="An English headline")
-    for language, expected in (("te", 1), ("en", 1), ("ten", 0)):
+    for language, expected in (("te", 1), ("en", 1)):
         body = client.get(f"/v1/feed?language={language}").json()
         assert body["total"] == expected, language
 
