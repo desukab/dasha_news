@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional
 
 from bs4 import BeautifulSoup
 
+from newsroom.media.image_select import ImageCandidate, collect_image_candidates
 from newsroom.nlp.language import detect_language
 from newsroom.nlp.telugu import normalize_text, word_count
 from newsroom.pipeline.fetch import FetchError, fetch
@@ -42,6 +43,11 @@ class ExtractedArticle:
     language: str
     is_paywalled: bool
     truncated: bool
+    # Every image the page offered, best first, relative URLs already resolved
+    # against the page's own origin. The single ``image_url`` is the first of
+    # these; the list is what lets the pipeline compare a whole cluster's
+    # photographs and pick a picture of the story rather than of the outlet.
+    image_candidates: List["ImageCandidate"] = field(default_factory=list)
 
 
 def extract_from_html(html: str, url: str = "") -> ExtractedArticle:
@@ -60,7 +66,12 @@ def extract_from_html(html: str, url: str = "") -> ExtractedArticle:
         truncated = True
 
     title = _title(soup)
-    og_image = _og_image(soup)
+    # The raw page is read for the outlet's declared preview images: the
+    # sanitiser strips <head> meta tags, which is right for rendering but would
+    # leave only the page's <img> set — whose first member is usually a logo.
+    # Only URLs are read from the raw page; it is never parsed for content.
+    raw_soup = BeautifulSoup(html, "lxml")
+    image_candidates = collect_image_candidates(raw_soup, soup, base_url=url)
     author = _author(soup)
 
     text = normalize_text(text)
@@ -76,10 +87,11 @@ def extract_from_html(html: str, url: str = "") -> ExtractedArticle:
         title=title,
         text=text,
         author=author,
-        image_url=og_image,
+        image_url=image_candidates[0].url if image_candidates else None,
         language=detect_language(title + " " + text).value,
         is_paywalled=_is_paywalled(soup),
         truncated=truncated,
+        image_candidates=image_candidates,
     )
 
 
@@ -136,19 +148,6 @@ def _title(soup: BeautifulSoup) -> str:
     if h1 and h1.get_text(strip=True):
         return h1.get_text(strip=True)
     return (soup.title.get_text(strip=True) if soup.title else "") or ""
-
-
-def _og_image(soup: BeautifulSoup) -> Optional[str]:
-    for prop in ("og:image", "og:image:secure_url", "twitter:image"):
-        tag = soup.find("meta", property=prop) or soup.find("meta", attrs={"name": prop})
-        if tag and tag.get("content"):
-            return tag["content"].strip()
-    figure = soup.find("figure")
-    if figure:
-        img = figure.find("img")
-        if img and img.get("src"):
-            return img["src"].strip()
-    return None
 
 
 _AUTHOR_PATTERNS = ("author", "byline", "రచయిత", "రచన")

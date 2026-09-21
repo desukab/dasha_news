@@ -15,7 +15,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Optional, Protocol, runtime_checkable
+
+if TYPE_CHECKING:  # a protocol-level type only; the extractor is a dependency
+    from newsroom.media.image_select import ImageCandidate
 
 # Stages, recorded verbatim on every AcquisitionEvent row.
 STAGE_DISCOVER = "discover"
@@ -54,6 +57,10 @@ class ExtractedPage:
     author: Optional[str] = None
     section: Optional[str] = None
     lead_image_url: Optional[str] = None
+    # Every photograph the page offered, best first. A single ``lead_image_url``
+    # cannot tell a picture of the story from the outlet's watermark, so the
+    # pipeline compares the whole set before choosing one.
+    image_candidates: list["ImageCandidate"] = field(default_factory=list)
     source_metadata: dict[str, Any] = field(default_factory=dict)
     # How much of the article was actually read, in [0, 1]. See
     # ``newsroom.acquisition.confidence``: this is an acquisition score, not an

@@ -19,6 +19,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -136,6 +137,11 @@ class Article(Base):
     summary_text: Mapped[Optional[str]] = mapped_column(Text)
     language: Mapped[str] = mapped_column(String(8), default="te")
     image_url: Mapped[Optional[str]] = mapped_column(String(1000))
+    # Every photograph this page offered, as {url, origin, w, h, alt} records.
+    # A single image_url is the first of these; the set is what lets a story
+    # compare its sources' photographs and choose one of the news, not one of
+    # the outlet's furniture.
+    image_candidates: Mapped[Optional[List[dict]]] = mapped_column(JSON)
     published_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
     ingested_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
     digest: Mapped[Optional[str]] = mapped_column(String(64), index=True)  # simhash hex

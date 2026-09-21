@@ -162,6 +162,7 @@ class HtmlAdapter:
             author=extracted.author,
             section=getattr(source, "default_section", None),
             lead_image_url=extracted.image_url,
+            image_candidates=extracted.image_candidates,
             source_metadata={
                 "language": extracted.language,
                 "is_paywalled": extracted.is_paywalled,

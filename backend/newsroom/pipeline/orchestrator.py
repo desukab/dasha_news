@@ -33,6 +33,13 @@ from newsroom.db.models import (
 )
 from newsroom.domain.evidence import EvidenceLevel
 from newsroom.media.audio import render_audio
+from newsroom.media.image_select import (
+    ImageCandidate,
+    absolutise,
+    from_records,
+    select_primary,
+    to_records,
+)
 from newsroom.media.media import build_short_script, generate_poster
 from newsroom.nlp.language import Language, detect_language, validate_language
 from newsroom.pipeline.dedupe import (
@@ -158,6 +165,10 @@ def enrich_article(session: Session, article: Article) -> Article:
             article.author = page.author[:300]
         if page.lead_image_url and not article.image_url:
             article.image_url = page.lead_image_url
+        # The candidate set is stored even when the page offered nothing the
+        # gate accepts: a later source's photograph is only comparable against
+        # this one's if this one's are on the record.
+        article.image_candidates = to_records(page.image_candidates)
         title = page.title or ""
         article.title_te = title if _is_telugu(title) else article.title_te
         article.title_en = title if _is_english(title) else None
@@ -845,28 +856,61 @@ def _entity_kind(token: str) -> Optional[str]:
 
 
 def _attach_primary_image(session: Session, story: Story, articles: List[Article]) -> None:
+    """Choose the story's photograph by comparing every source's photographs.
+
+    Every article carries the images its page offered; the best of the whole
+    cluster wins, so a story whose first source publishes only its own
+    watermark can still be illustrated by a source that published a picture of
+    the news (spec §42).
+    """
     if story.primary_image_url:
         return
+
+    candidates: List[ImageCandidate] = []
+    owner: Dict[str, Article] = {}
     for article in articles:
-        if not article.image_url:
+        page_candidates = absolutise(from_records(article.image_candidates),
+                                     base_url=article.url)
+        if article.image_url and not any(c.url == article.image_url for c in page_candidates):
+            # A row written before the candidate column existed still carries
+            # its single image; it is a candidate like any other.
+            page_candidates.insert(0, ImageCandidate(url=article.image_url))
+        best = select_primary(page_candidates, headline=story.headline_te,
+                              body=story.body_te, base_url=article.url)
+        if best is None:
             continue
-        source = article.source
-        story.primary_image_url = article.image_url
-        story.primary_image_license = "source"
-        story.primary_image_attribution = (
-            f"Publisher-supplied thumbnail: {source.name if source else 'unknown'}. "
-            f"Dasha News links to the originating report."
-        )
-        media = Media(
-            story_id=story.id, article_id=article.id, url=article.image_url,
-            provider="source", license="source",
-            attribution=story.primary_image_attribution,
-            credit_text=source.name if source else None,
-            status="primary",
-        )
-        session.add(media)
-        session.flush()
+        candidates.append(best)
+        owner.setdefault(best.url, article)
+
+    if not candidates:
         return
+
+    # The cluster's photographs are ranked against the story, not against each
+    # article, which is what makes a later source's better image win over the
+    # first source's merely acceptable one.
+    ranked = select_primary(candidates, headline=story.headline_te,
+                            body=story.body_te)
+    if ranked is None:
+        return
+    article = owner[ranked.url]
+    source = article.source
+    story.primary_image_url = ranked.url
+    story.primary_image_license = "source"
+    story.primary_image_attribution = (
+        f"Publisher-supplied image: {source.name if source else 'unknown'}. "
+        f"Dasha News links to the originating report."
+    )
+    media = Media(
+        story_id=story.id,
+        article_id=article.id,
+        url=ranked.url, provider="source", license="source",
+        attribution=story.primary_image_attribution,
+        credit_text=source.name if source else None,
+        width=ranked.width, height=ranked.height,
+        status="primary",
+    )
+    session.add(media)
+    session.flush()
 
 
 # ---------------------------------------------------------------------------
