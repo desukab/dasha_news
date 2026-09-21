@@ -786,7 +786,7 @@ def _evidence_score(facts: List[Fact], summary, sources: List[Source]) -> float:
     base = mean(weights)
     corroboration = min(0.25, 0.08 * max(0, len(sources) - 1))
     conflict_penalty = 0.1 * len(summary.conflicting)
-    return max(0.02, min(1.0, base * 0.85 + corroboration - conflict_penalty))
+    return max(0.02, min(1.0, base + corroboration - conflict_penalty))
 
 
 def _is_new_content(story: Story, articles: List[Article]) -> bool:

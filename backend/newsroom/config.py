@@ -91,7 +91,18 @@ class Settings(BaseSettings):
     # ---- Newsroom automation ----------------------------------------------
     pipeline_interval_seconds: int = 300
     auto_publish_enabled: bool = True
-    auto_publish_min_evidence: float = 0.55
+    # The floor a story's evidence score must clear to go out without a human.
+    #
+    # The score is `mean(evidence weight x confidence) + corroboration -
+    # conflict penalty`, and the threshold has to be read against the *ceiling*
+    # of each evidence class. The `claim` class (weight 0.55, the one most wire
+    # copy falls under) caps at 0.55, so a threshold of 0.55 needed perfect
+    # confidence on every fact before corroboration counted at all. That left
+    # 94% of the room in `draft` while ingestion ran healthy. At 0.40 a
+    # single-source claim at mean confidence clears the bar as `developing`,
+    # which is honest about how thin the reporting behind it is, and a lone
+    # `unverified` report (ceiling 0.30) still does not.
+    auto_publish_min_evidence: float = 0.40
     sensitive_categories_hold: str = "crime,courts,accidents,unverified"
     raw_retention_days: int = 14
 
