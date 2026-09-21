@@ -50,22 +50,12 @@ class AppStrings {
       nearNeedsDistrict: 'మీ ప్రాంతాన్ని ఎంచుకోండి',
       nearNeedsDistrictHint: 'మీ జిల్లాలో జరుగుతున్న వార్తలను చూడటానికి',
       reading: 'చదువుతున్నారు',
-      readAtSource: 'మూలంలో చదవండి',
       saveStory: 'సేవ్ చేయండి',
       savedStory: 'సేవ్ అయింది',
       shareStory: 'షేర్ చేయండి',
-      sources: 'మూలాలు',
       sharedFrom: 'దీన్ని షేర్ చేసినది',
       streamEnd: 'ఇవే ఈ రోజు వార్తలు',
       refreshStream: 'మళ్లీ తీసుకోండి',
-      facts: 'వాస్తవాలు',
-      evidence: 'ఆధారం',
-      confidence: 'నమ్మకం',
-      attributedTo: 'చెప్పినది',
-      corroborated: 'ధృవీకరించబడింది',
-      inConflict: 'మూలాల మధ్య భేదం',
-      corrections: 'సవరణలు',
-      updates: 'నవీకరణలు',
       listen: 'వినండి',
       pause: 'ఆపండి',
       resume: 'కొనసాగించండి',
@@ -120,8 +110,8 @@ class AppStrings {
       serverHint: 'న్యూస్‌రూమ్ చిరునామా',
       about: 'గురించి',
       aboutBody:
-          'దశ న్యూస్ అనేది తెలంగాణకు చెందిన డిజిటల్ వార్తా పత్రిక. ప్రతి వార్తకు '
-          'మూలాలు బహిరంగంగా చూపిస్తుంది.',
+          'దశ న్యూస్ అనేది తెలంగాణకు చెందిన డిజిటల్ వార్తా పత్రిక. ప్రతి వార్తను '
+          'మన సంపాదకీయ బృందం స్వంతంగా నిర్మిస్తుంది.',
       originalVsSummary: 'ఇది అసలు నివేదన కాదు; దశ సారాంశం.',
       unpublished: 'ప్రచురణకు ముందే',
       holdNote: 'సంపాదకీయ పర్యవేక్షణలో ఉంది',
@@ -155,22 +145,12 @@ class AppStrings {
       nearNeedsDistrict: 'Choose your area',
       nearNeedsDistrictHint: 'To see what is happening in your district',
       reading: 'reading',
-      readAtSource: 'Read at source',
       saveStory: 'Save',
       savedStory: 'Saved',
       shareStory: 'Share',
-      sources: 'Sources',
       sharedFrom: 'Shared from',
       streamEnd: 'That is all for now',
       refreshStream: 'Fetch again',
-      facts: 'Facts',
-      evidence: 'Evidence',
-      confidence: 'Confidence',
-      attributedTo: 'According to',
-      corroborated: 'Corroborated',
-      inConflict: 'Sources conflict',
-      corrections: 'Corrections',
-      updates: 'Updates',
       listen: 'Listen',
       pause: 'Pause',
       resume: 'Resume',
@@ -182,7 +162,7 @@ class AppStrings {
       onboardingTitle: 'Welcome to Dasha News',
       onboardingBody:
           'A digital newspaper built for Telangana. News in your language, from your district, '
-          'with its sources in the open.',
+          'written by our own desk.',
       chooseLanguage: 'Choose your language',
       chooseDistrict: 'Choose your district',
       getStarted: 'Get started',
@@ -226,8 +206,8 @@ class AppStrings {
       serverHint: 'Newsroom address',
       about: 'About',
       aboutBody:
-          'Dasha News is a digital newspaper for Telangana. Every story carries the '
-          'outlets that reported it, so you can read it at the source.',
+          'Dasha News is a digital newspaper for Telangana. Every story is written '
+          'by our own editorial desk, in the language you read it in.',
       originalVsSummary: 'This is a Dasha summary, not the original report.',
       unpublished: 'Not yet published',
       holdNote: 'Held for editorial review',
@@ -265,11 +245,9 @@ class AppStrings {
   String get nearNeedsDistrict => _lang.nearNeedsDistrict;
   String get nearNeedsDistrictHint => _lang.nearNeedsDistrictHint;
   String get reading => _lang.reading;
-  String get readAtSource => _lang.readAtSource;
   String get saveStory => _lang.saveStory;
   String get savedStory => _lang.savedStory;
   String get shareStory => _lang.shareStory;
-  String get sources => _lang.sources;
   String get sharedFrom => _lang.sharedFrom;
 
   /// The screen after the last story in the stream.
@@ -280,27 +258,6 @@ class AppStrings {
   String get streamEnd => _lang.streamEnd;
   String get refreshStream => _lang.refreshStream;
 
-  /// How many outlets are behind a story, in the language's own plural.
-  ///
-  /// Telugu marks the singular: ఒక్క మూలం against మూలాలు. A count is the one
-  /// number a reader of short news is shown, so it is worth saying right.
-  String sourceCount(int n) {
-    // One language decision, three plural rules: zero is its own case and not
-    // a degenerate singular, because a story the wire filed with no sources is
-    // not a story with one.
-    final telugu = code == 'te';
-    if (n == 0) return telugu ? 'మూలం లేదు' : 'no sources';
-    if (n == 1) return telugu ? 'ఒక్క మూలం' : '1 source';
-    return telugu ? '$n మూలాలు' : '$n sources';
-  }
-  String get facts => _lang.facts;
-  String get evidence => _lang.evidence;
-  String get confidence => _lang.confidence;
-  String get attributedTo => _lang.attributedTo;
-  String get corroborated => _lang.corroborated;
-  String get inConflict => _lang.inConflict;
-  String get corrections => _lang.corrections;
-  String get updates => _lang.updates;
   String get listen => _lang.listen;
   String get pause => _lang.pause;
   String get resume => _lang.resume;
@@ -402,22 +359,12 @@ class _Lang {
     required this.nearNeedsDistrict,
     required this.nearNeedsDistrictHint,
     required this.reading,
-    required this.readAtSource,
     required this.saveStory,
     required this.savedStory,
     required this.shareStory,
-    required this.sources,
     required this.sharedFrom,
     required this.streamEnd,
     required this.refreshStream,
-    required this.facts,
-    required this.evidence,
-    required this.confidence,
-    required this.attributedTo,
-    required this.corroborated,
-    required this.inConflict,
-    required this.corrections,
-    required this.updates,
     required this.listen,
     required this.pause,
     required this.resume,
@@ -504,22 +451,12 @@ class _Lang {
   final String nearNeedsDistrict;
   final String nearNeedsDistrictHint;
   final String reading;
-  final String readAtSource;
   final String saveStory;
   final String savedStory;
   final String shareStory;
-  final String sources;
   final String sharedFrom;
   final String streamEnd;
   final String refreshStream;
-  final String facts;
-  final String evidence;
-  final String confidence;
-  final String attributedTo;
-  final String corroborated;
-  final String inConflict;
-  final String corrections;
-  final String updates;
   final String listen;
   final String pause;
   final String resume;

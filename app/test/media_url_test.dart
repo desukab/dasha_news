@@ -76,8 +76,6 @@ void main() {
           section: 'state',
           status: 'published',
           importance: 1.0,
-          evidenceScore: 0,
-          numSources: 1,
           isBreaking: false,
           isDeveloping: false,
           imageUrl: imageUrl,

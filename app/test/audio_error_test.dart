@@ -47,8 +47,6 @@ Story _story({required String? audioUrl}) => Story(
       section: 'telangana',
       status: 'published',
       importance: 0.8,
-      evidenceScore: 0.7,
-      numSources: 2,
       isBreaking: false,
       isDeveloping: false,
       audioUrl: audioUrl,

@@ -162,8 +162,10 @@ class _ShortCard extends StatelessWidget {
                         const SizedBox(height: 12),
                         Row(
                           children: [
-                            _chip(strings.sources,
-                                story.numSources.toString()),
+                            if (story.isBreaking)
+                              _chip(strings.breaking, null)
+                            else if (story.isDeveloping)
+                              _chip(strings.developing, null),
                             const SizedBox(width: 8),
                             _chip(
                                 strings.reading,
@@ -210,7 +212,7 @@ class _ShortCard extends StatelessWidget {
     );
   }
 
-  Widget _chip(String label, String value) {
+  Widget _chip(String label, String? value) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
@@ -220,15 +222,17 @@ class _ShortCard extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
+          if (value != null) ...[
+            Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-          const SizedBox(width: 4),
+            const SizedBox(width: 4),
+          ],
           Text(
             label,
             style: const TextStyle(

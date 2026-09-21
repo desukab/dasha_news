@@ -149,13 +149,18 @@ void main() {
     refused.close();
   });
 
-  test('a story with no facts still parses and keeps its evidence score',
+  test('a story carries no desk-only field even when the wire copy does',
       () async {
     final api = client(MockClient((_) async => ok(_feedStory)));
     final story = await api.story(1);
-    expect(story.facts, isEmpty);
-    expect(story.evidenceScore, closeTo(0.9, 0.001));
-    expect(story.isCorroborated, isTrue);
+    // The reader API does not send evidence or source counts, but a phone in
+    // the field can be talking to a server one release behind, and the model
+    // has nowhere to put them: the fields are gone from the object, so an
+    // unknown key is dropped rather than carried into the UI.
+    expect(story.headline('te'), 'తల్లి వార్త');
+    expect(story.headline('en'), 'Mother story');
+    expect(story.body('te'), 'వాక్యం ఇక్కడ ఉంది.');
+    expect(story.mandal, 'Hayatnagar');
     api.close();
   });
 }
@@ -167,6 +172,9 @@ const Map<String, dynamic> _feedStory = {
   'section': 'telangana',
   'status': 'published',
   'importance': 0.8,
+  // The reader API does not send these. They are here because a phone can be
+  // talking to a server one release behind, and the model must drop them
+  // rather than render them.
   'evidence_score': 0.9,
   'num_sources': 3,
   'is_breaking': false,

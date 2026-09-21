@@ -2,7 +2,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_client.dart';
 import '../../core/app_strings.dart';
@@ -17,14 +16,12 @@ import '../../widgets/states_view.dart';
 import '../main_shell.dart';
 import '../widgets/masthead.dart';
 
-/// The full story: headline, body, the outlets that reported it, and every
-/// correction since publication.
+/// The full story: headline, body, where and when it happened.
 ///
 /// The page shows a reader what a newspaper shows a reader. The desk's own
 /// machinery — which claim rests on which evidence level, how confident the
-/// pipeline is, which sources corroborate which — is not a reader's concern;
-/// it lives in the editor's tool. What the reader gets instead is the story,
-/// who reported it, and a link to read it where it was filed.
+/// pipeline is, which outlets corroborate which — is not a reader's concern;
+/// it lives in the editor's tool. What the reader gets is the story itself.
 class StoryDetailPage extends StatefulWidget {
   const StoryDetailPage({super.key, required this.args});
 
@@ -51,8 +48,6 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
           section: 'telangana',
           status: 'published',
           importance: 0,
-          evidenceScore: 0,
-          numSources: 0,
           isBreaking: false,
           isDeveloping: false,
         );
@@ -127,9 +122,6 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                   if (_story.imageUrl != null) _heroImage(context, app),
                   if (_story.hasAudio) _listenBar(context, audio, strings),
                   _body(context, app, strings),
-                  if (_story.updates.isNotEmpty)
-                    _updates(context, app, strings),
-                  _sources(context, app, strings),
                   const SliverToBoxAdapter(child: SizedBox(height: 32)),
                 ],
               ],
@@ -399,172 +391,6 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _updates(BuildContext context, AppState app, AppStrings strings) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _subhead(context, strings.updates, Icons.history_rounded),
-            const SizedBox(height: 8),
-            for (final update in _story.updates) ...[
-              Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: update.isCorrection
-                      ? SemanticColour.disputed.inkOf(context)
-                          .withValues(alpha: 0.07)
-                      : Theme.of(context).colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(12),
-                  border: update.isCorrection
-                      ? Border.all(
-                          color: SemanticColour.disputed.inkOf(context)
-                              .withValues(alpha: 0.3))
-                      : null,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          update.isCorrection
-                              ? Icons.edit_note_rounded
-                              : Icons.update_rounded,
-                          size: 16,
-                          color: update.isCorrection
-                              ? SemanticColour.disputed.inkOf(context)
-                              : Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          update.isCorrection
-                              ? strings.corrections
-                              : strings.updates,
-                          style:
-                              Theme.of(context).textTheme.labelLarge?.copyWith(
-                                    color: update.isCorrection
-                                        ? SemanticColour.disputed.inkOf(
-                                            context)
-                                        : Theme.of(context)
-                                            .colorScheme
-                                            .primary,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          relativeTime(update.createdAt, strings: app.strings),
-                          style: Theme.of(context).textTheme.labelSmall,
-                        ),
-                      ],
-                    ),
-                    if (update.headline != null) ...[
-                      const SizedBox(height: 6),
-                      Text(update.headline!,
-                          style: Theme.of(context).textTheme.titleSmall),
-                    ],
-                    if (update.text(app.locale).isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        update.text(app.locale),
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              height: hasTeluguScript(update.text(app.locale))
-                                  ? 1.6
-                                  : 1.5,
-                            ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _sources(BuildContext context, AppState app, AppStrings strings) {
-    if (_story.sources.isEmpty) return const SliverToBoxAdapter(child: SizedBox());
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _subhead(context, strings.sources, Icons.link_rounded),
-            const SizedBox(height: 8),
-            for (final source in _story.sources) ...[
-              Container(
-                margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            source.sourceName ?? source.displayUrl,
-                            style:
-                                Theme.of(context).textTheme.labelLarge?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                          ),
-                          if ((source.articleTitle ?? '').isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              source.articleTitle!,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    if (source.articleUrl != null)
-                      IconButton(
-                        icon: const Icon(Icons.open_in_new_rounded, size: 17),
-                        tooltip: strings.readAtSource,
-                        onPressed: () async {
-                          final uri = Uri.parse(source.articleUrl!);
-                          if (await canLaunchUrl(uri)) {
-                            await launchUrl(uri,
-                                mode: LaunchMode.externalApplication);
-                          }
-                        },
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _subhead(BuildContext context, String label, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, size: 15, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(width: 6),
-        Text(label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                )),
-      ],
     );
   }
 

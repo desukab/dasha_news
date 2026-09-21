@@ -161,8 +161,6 @@ Story _story(int id) {
     section: 'telangana',
     status: 'published',
     importance: 0.5,
-    evidenceScore: 0.5,
-    numSources: 2,
     isBreaking: false,
     isDeveloping: false,
   );

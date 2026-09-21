@@ -22,21 +22,9 @@ import 'package:dasha_news/widgets/story_card.dart';
 /// should not have to read a dashboard to scroll past one.
 void main() {
   testWidgets('a card draws no editorial machinery', (tester) async {
-    await _pumpCard(
-      tester,
-      _story(
-        numSources: 3,
-        evidenceScore: 0.9,
-        correctionsCount: 1,
-        sources: const [
-          SourceLink(id: 1, corroborates: false, conflictsWith: 'toll figure'),
-          SourceLink(id: 2, corroborates: true),
-        ],
-      ),
-      facts: [_fact('fact')],
-    );
+    await _pumpCard(tester, _story());
 
-    // Provenance and evidence live on the story page, not in the feed.
+    // Provenance and evidence live on the desk's pages, not in the feed.
     expect(find.byIcon(Icons.verified_rounded), findsNothing);
     expect(find.byIcon(Icons.shield_outlined), findsNothing);
     expect(find.byIcon(Icons.info_outline), findsNothing);
@@ -177,7 +165,6 @@ Future<void> _pumpCard(
   Story story, {
   VoidCallback? onTap,
   String locale = 'en',
-  List<Fact> facts = const [],
   StoryVariant? variant,
   bool compact = false,
 }) async {
@@ -189,7 +176,7 @@ Future<void> _pumpCard(
         theme: AppTheme.light(),
         home: Scaffold(
           body: StoryCard(
-            story: story.copyWithDetail(_withFacts(story, facts)),
+            story: story,
             onTap: onTap,
             variant: variant,
             compact: compact,
@@ -199,36 +186,6 @@ Future<void> _pumpCard(
     ),
   );
   await tester.pump();
-}
-
-Story _withFacts(Story story, List<Fact> facts) {
-  return Story(
-    id: story.id,
-    clusterId: story.clusterId,
-    slug: story.slug,
-    section: story.section,
-    status: story.status,
-    importance: story.importance,
-    evidenceScore: story.evidenceScore,
-    numSources: story.numSources,
-    isBreaking: story.isBreaking,
-    isDeveloping: story.isDeveloping,
-    correctionsCount: story.correctionsCount,
-    sources: story.sources,
-    headlineTe: story.headlineTe,
-    headlineTen: story.headlineTen,
-    headlineEn: story.headlineEn,
-    leadTe: story.leadTe,
-    sectionLabelTe: story.sectionLabelTe,
-    sectionLabelEn: story.sectionLabelEn,
-    district: story.district,
-    mandal: story.mandal,
-    state: story.state,
-    imageUrl: story.imageUrl,
-    publishedAt: story.publishedAt,
-    bodyTe: story.bodyTe,
-    facts: facts,
-  );
 }
 
 /// A real [AppState] wired to an unreachable newsroom, so the card sees the
@@ -265,11 +222,8 @@ Future<AppState> _appState(WidgetTester tester, {required String locale}) async 
 
 Story _story({
   int id = 1,
-  int numSources = 2,
-  double evidenceScore = 0.5,
   bool isBreaking = false,
   bool isDeveloping = false,
-  int correctionsCount = 0,
   String? headlineTe,
   String? headlineEn,
   String sectionLabelEn = 'Telangana',
@@ -277,7 +231,6 @@ Story _story({
   String? imageUrl,
   DateTime? publishedAt,
   String? bodyTe,
-  List<SourceLink> sources = const [],
 }) {
   return Story(
     id: id,
@@ -286,8 +239,6 @@ Story _story({
     section: 'telangana',
     status: 'published',
     importance: 0.5,
-    evidenceScore: evidenceScore,
-    numSources: numSources,
     isBreaking: isBreaking,
     isDeveloping: isDeveloping,
     // headlineEn is left null by default: a story with an English column
@@ -302,16 +253,5 @@ Story _story({
     imageUrl: imageUrl,
     publishedAt: publishedAt ?? DateTime(2025, 3, 4, 14, 30),
     bodyTe: bodyTe,
-    sources: sources,
-    correctionsCount: correctionsCount,
   );
 }
-
-Fact _fact(String text) => Fact(
-      id: 1,
-      textTe: text,
-      evidenceLevel: 'official',
-      confidence: 0.9,
-      status: 'active',
-      rank: 0,
-    );

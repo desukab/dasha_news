@@ -247,12 +247,12 @@ class SwipeStoryView extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          if (story.numSources > 0) ...[
-            Icon(Icons.campaign_rounded,
+          if (story.isDeveloping) ...[
+            Icon(Icons.trending_up_rounded,
                 size: 13, color: theme.colorScheme.primary),
             const SizedBox(width: 4),
             Text(
-              strings.sourceCount(story.numSources),
+              strings.developing,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.primary,
                 fontWeight: FontWeight.w800,

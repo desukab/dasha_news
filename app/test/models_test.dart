@@ -17,8 +17,6 @@ void main() {
         section: 'politics',
         status: 'published',
         importance: 0.8,
-        evidenceScore: 0.9,
-        numSources: 3,
         isBreaking: false,
         isDeveloping: false,
         headlineTe: 'తెలుగు శీర్షిక',
@@ -40,8 +38,6 @@ void main() {
         section: 'telangana',
         status: 'published',
         importance: 0.1,
-        evidenceScore: 0.1,
-        numSources: 1,
         isBreaking: false,
         isDeveloping: false,
       );
@@ -60,8 +56,6 @@ void main() {
         section: 'telangana',
         status: 'published',
         importance: 0.5,
-        evidenceScore: 0.5,
-        numSources: 1,
         isBreaking: false,
         isDeveloping: false,
         headlineTe: 'Ministers review the flood relief camps',
@@ -106,59 +100,6 @@ void main() {
       expect(_story(district: 'Hyderabad').place, 'Hyderabad');
       expect(_story(state: 'India').place, 'India');
       expect(_story().place, isNull);
-    });
-
-    test('corroboration and conflict flags are derived from sources', () {
-      expect(_story(numSources: 3).isCorroborated, isTrue);
-      expect(_story(numSources: 1).isCorroborated, isFalse);
-
-      final conflicting = _story(
-        numSources: 2,
-        sources: [
-          const SourceLink(id: 1, corroborates: false, conflictsWith: 'toll'),
-          const SourceLink(id: 2, corroborates: true),
-        ],
-      );
-      expect(conflicting.hasConflict, isTrue);
-
-      final agreeing = _story(
-        numSources: 2,
-        sources: const [
-          SourceLink(id: 1, corroborates: true),
-          SourceLink(id: 2, corroborates: true),
-        ],
-      );
-      expect(agreeing.hasConflict, isFalse);
-    });
-  });
-
-  group('Fact evidence taxonomy', () {
-    test('a fact is factual only at fact or official level', () {
-      expect(_fact('fact').isFactual, isTrue);
-      expect(_fact('official').isFactual, isTrue);
-      expect(_fact('claim').isFactual, isFalse);
-      expect(_fact('allegation').isFactual, isFalse);
-      expect(_fact('unverified').isFactual, isFalse);
-    });
-
-    test('the weakest levels are flagged for attribution', () {
-      expect(_fact('allegation').isWeakest, isTrue);
-      expect(_fact('unverified').isWeakest, isTrue);
-      expect(_fact('disputed').isWeakest, isTrue);
-      expect(_fact('fact').isWeakest, isFalse);
-    });
-
-    test('an English-language reader gets the English text when present', () {
-      final fact = _fact('fact', textTe: 'తెలుగు', textEn: 'English');
-      expect(fact.text('te'), 'తెలుగు');
-      expect(fact.text('en'), 'English');
-    });
-
-    test('a fact without English still renders in Telugu for an English reader',
-        () {
-      final fact = _fact('fact', textTe: 'తెలుగు వాక్యం', textEn: null);
-      // Better to show the source script than to show nothing at all.
-      expect(fact.text('en'), 'తెలుగు వాక్యం');
     });
   });
 
@@ -227,7 +168,6 @@ void main() {
 }
 
 Story _story({
-  int numSources = 1,
   String? headlineTe,
   String? headlineTen,
   String? headlineEn,
@@ -236,7 +176,6 @@ Story _story({
   String? mandal,
   String? district,
   String? state,
-  List<SourceLink> sources = const [],
 }) {
   return Story(
     id: 1,
@@ -245,8 +184,6 @@ Story _story({
     section: 'telangana',
     status: 'published',
     importance: 0.5,
-    evidenceScore: 0.5,
-    numSources: numSources,
     isBreaking: false,
     isDeveloping: false,
     headlineTe: headlineTe,
@@ -257,18 +194,5 @@ Story _story({
     mandal: mandal,
     district: district,
     state: state,
-    sources: sources,
-  );
-}
-
-Fact _fact(String level, {String textTe = 'వాక్యం', String? textEn}) {
-  return Fact(
-    id: 1,
-    textTe: textTe,
-    textEn: textEn,
-    evidenceLevel: level,
-    confidence: 0.8,
-    status: 'active',
-    rank: 1,
   );
 }
