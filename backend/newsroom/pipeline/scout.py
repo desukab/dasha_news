@@ -106,8 +106,8 @@ def parse_feed(raw: str, base_url: str = "", *,
     parsed = feedparser.parse(raw)
     items: List[FeedItem] = []
     for entry in parsed.entries:
-        title = _clean_text(entry.get("title"))
         url = _first_link(entry, base_url)
+        title = _entry_title(entry, url)
         if not title or not url:
             continue
         summary = _clean_text(_entry_summary(entry))
@@ -130,6 +130,44 @@ def parse_feed(raw: str, base_url: str = "", *,
 def _clean_text(text: Optional[str]) -> str:
     text = normalize_text(text)
     return strip_dangling_vowel_signs(text)
+
+
+# A title that is only punctuation is a feed bug, not a headline: at least one
+# live outlet's items carry a <title> of "." for entries the CMS never titled.
+# Publishing it puts a bare full stop on the front page, so the summary or the
+# URL slug is used instead, and the item is dropped only if none of the three
+# says anything.
+_PUNCTUATION_ONLY = re.compile(r"^[\W_]+$", re.UNICODE)
+
+
+def _entry_title(entry, url: str) -> str:
+    raw = _clean_text(entry.get("title"))
+    if raw and not _PUNCTUATION_ONLY.match(raw):
+        return raw
+    for candidate in (_first_sentence(_entry_summary(entry)), _slug_from_url(url)):
+        fallback = _clean_text(candidate)
+        if fallback and not _PUNCTUATION_ONLY.match(fallback):
+            return fallback
+    return ""
+
+
+def _first_sentence(text: str) -> str:
+    """A summary stands in for a title only as far as its first sentence."""
+    stripped = (text or "").strip()
+    if not stripped:
+        return ""
+    cut = re.search(r"[.!?।]\s", stripped)
+    return stripped[:cut.end()].strip() if cut else stripped[:200].strip()
+
+
+def _slug_from_url(url: str) -> str:
+    """The last descriptive words of a URL, which an untitled item is usually
+    filed under anyway."""
+    from urllib.parse import urlparse
+
+    path = urlparse(url or "").path.rstrip("/")
+    tail = path.rsplit("/", 1)[-1]
+    return tail.replace("-", " ").replace("_", " ").replace(".html", "")
 
 
 def _first_link(entry, base_url: str) -> str:

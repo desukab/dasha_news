@@ -39,6 +39,29 @@ SEED_SOURCES: list[dict[str, object]] = [
     {"name": "Telangana Today", "site": "https://telanganatoday.com",
      "site_slug": "telangana-today", "kind": "rss",
      "feed": "https://telanganatoday.com/feed", "lang": "te", "trust": 0.65},
+    # The capital desk of the same outlet, filed separately so a city story is
+    # not read as a state one. The main feed carries it too; the desk feed is
+    # what keeps Hyderabad's news from being diluted into Telangana's.
+    {"name": "Telangana Today – Hyderabad", "site": "https://telanganatoday.com",
+     "site_slug": "telangana-today-hyderabad", "kind": "rss",
+     "feed": "https://telanganatoday.com/category/hyderabad/feed",
+     "lang": "te", "trust": 0.65},
+    # The largest Telugu daily. Its CMS leaves untitled entries with a
+    # <title> of ".", which the feed parser now falls back from rather than
+    # publishing a bare full stop; /rss/telangana, the older path, answers
+    # with an empty channel, so the root feed is the one that ships.
+    {"name": "సాక్షి – తెలంగాణ", "site": "https://www.sakshi.com",
+     "site_slug": "sakshi", "kind": "rss",
+     "feed": "https://www.sakshi.com/rss.xml", "lang": "te", "trust": 0.7},
+    # Namaste Telangana's desk site. The outlet's own RssFeed.aspx path has
+    # been retired by the publisher and 404s; ntnews.com is the same
+    # newsroom's live feed.
+    {"name": "నమస్తే తెలంగాణ", "site": "https://www.ntnews.com",
+     "site_slug": "namaste-telangana", "kind": "rss",
+     "feed": "https://www.ntnews.com/feed", "lang": "te", "trust": 0.65},
+    {"name": "TV9 Telugu", "site": "https://www.tv9telugu.com",
+     "site_slug": "tv9-telugu", "kind": "rss",
+     "feed": "https://www.tv9telugu.com/feed", "lang": "te", "trust": 0.6},
     {"name": "V6 Velugu", "site": "https://v6velugu.com", "site_slug": "v6velugu",
      "kind": "rss", "feed": "https://v6velugu.com/feed", "lang": "te", "trust": 0.7},
     {"name": "Mirchi9", "site": "https://www.mirchi9.com", "site_slug": "mirchi9",
