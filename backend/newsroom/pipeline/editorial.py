@@ -70,6 +70,74 @@ class Draft:
 
 _TE_HEADLINE_STRIP = re.compile(r"^\s*(తెలంగాణ\s*న్యూస్|బ్రేకింగ్\s*న్యూస్|[|\-–—]\s*)+", re.I)
 _EN_HEADLINE_STRIP = re.compile(r"^\s*(breaking[:\s\-]*|just in[:\s\-]*|[|\-–—]\s*)+", re.I)
+
+# The outlet's own furniture, which arrives glued to the real headline because
+# the scraper read the page rather than the story. Cross-links, photo credits,
+# video prompts and solicitation carry no news, and they are Telugu-outlet
+# furniture written in Latin more often than they are Telugu, so both languages
+# are listed against both scripts. The list is deliberately narrow: a phrase
+# that can open a genuine headline costs us news, and a phrase that can only
+# open a widget costs us nothing by being left in.
+# Credits and image labels are safe to cut from either end: they name the
+# outlet's own assets and never a fact about the story.
+_BOTH_ENDS = (
+    r"photo(?:graph)?\s+credits?|image\s+credits?|pic\s*[:\-]?\s*credit"
+    r"|representational\s+(?:image|photo|picture)"
+    r"|file\s+(?:photo|image|picture)"
+    # Telugu has no single letter for the o-vowel, so the word is written with
+    # either the ొ-sign or the ో-sign depending on the outlet; both spellings
+    # are the same word and both have to be listed.
+    r"|ఫ[ొో]టో\s*క్రెడిట్(?:స్)?"
+    r"|ఇంకా\s*చదవండి|మరిన్ని\s*వార్తల\s*కోసం|మరిన్ని\s*ఆసక్తికర\s*వార్తలు"
+)
+# Prompts are only cut from the head. "Watch:" and "Read More" lead a chrome
+# headline; at the tail they are far more likely to be the story's own words --
+# "Budget watch:", "the files to read more carefully" -- and a strip there
+# destroys a real headline to remove a widget that was not there.
+_PROMPTS = (
+    r"also\s+read(?:\s+(?:this|the|more))?(?:\s+(?:story|article|news|reports?))?"
+    r"|read\s+more(?:\s+(?:about|on|at))?"
+    r"|watch(?:\s+(?:now|this|live|video|here))?"
+    r"|click\s+here|see\s+(?:photos?|images?|video|details?|here)"
+    r"|full\s+story|more\s+details|read\s+the\s+full\s+story"
+    r"|follow\s+us|subscribe\s+(?:now|to)|download\s+the\s+app"
+    r"|published\s+on|updated\s+on|posted\s+on"
+    r"|వీడియో\s*చూడండి|ఇక్కడ\s*చూడండి|క్లిక్\s*చేయండి"
+    r"|షేర్\s*చేయండి|కామెంట్\s*చేయండి"
+)
+# A credit is usually followed by who owns it -- "ఫొటో క్రెడిట్: ANI" -- and
+# leaving the attribution behind is worse than leaving the label, because
+# "ప్రమాదం | : ANI" is a headline that says nothing after the pipe. The agency
+# is bounded to an acronym-shaped token with no spaces, so it can swallow ANI
+# and PTI but never the sentence that follows "Read More:".
+_AGENCY = r"(?:\s*[:\-–—]\s*[A-Z][A-Za-z0-9&./-]{0,19})?"
+# The glue between the furniture and the headline: "Also Read | టైటిల్" and
+# "టైటిల్ - ఫొటో క్రెడిట్: ANI" are the two shapes it takes.
+_GLUE = r"[\s|:.\-–—]*"
+
+_TAIL = re.compile(rf"{_GLUE}(?:{_BOTH_ENDS}){_AGENCY}{_GLUE}$", re.I)
+_HEAD = re.compile(rf"^{_GLUE}(?:(?:{_BOTH_ENDS}){_AGENCY}|{_PROMPTS}){_GLUE}", re.I)
+_ANYWHERE = re.compile(word_boundary(_PROMPTS), re.I)
+
+
+def strip_site_boilerplate(text: str) -> str:
+    """Cut outlet furniture off both ends of a headline or a lead.
+
+    Site chrome can stack ("Also Read | Watch: ..."), so the pass repeats until
+    it stops changing the text rather than assuming one widget per end.
+    """
+    if not text:
+        return text
+    for _ in range(4):
+        stripped = _TAIL.sub("", text)
+        stripped = _HEAD.sub("", stripped)
+        stripped = re.sub(r"\s+", " ", stripped).strip()
+        if stripped == text:
+            break
+        text = stripped
+    return text.strip(" |:.-–—")
+
+
 _CLICKBAIT = re.compile(
     word_boundary(r"you won't believe|shocking|సంచలనం|షాకింగ్|goes viral|వైరల్"), re.I)
 
@@ -137,20 +205,11 @@ def _heuristic_headline(facts: Sequence[Any], language: str,
     if language == "en":
         text = _to_english_sketch(text, facts, district)
 
-    place = district or "తెలంగాణ"
-    if language == "en":
-        place = district or "Telangana"
-    elif district and telugu_ratio(district) < 0.2:
-        # A district name in Latin letters has no business on a Telugu headline:
-        # it is the one thing that turns a correct Telugu line into a mixed-script
-        # one, and the language gate measures it as English leakage. The
-        # district is already carried by the story's section, so nothing is lost
-        # by leaving it off the Telugu rendering.
-        place = "తెలంగాణ"
-
-    if not _contains_place(text, place):
-        text = f"{text} – {place}" if language == "en" else f"{text} | {place}"
-
+    # Location belongs in the story's metadata, not in its headline. The place
+    # is already carried by `district`/`mandal`/`section` and the front page
+    # shows it beside the headline, so appending "| తెలంగాణ" to every Telugu
+    # line ate two of the ten words a headline is allowed and pushed the actual
+    # news to the tail, where a phone truncates it.
     if word_count(text) > MAX_HEADLINE_WORDS:
         text = " ".join(text.split()[:MAX_HEADLINE_WORDS]).rstrip("–|-| ")
     if language == "te":
@@ -161,6 +220,7 @@ def _heuristic_headline(facts: Sequence[Any], language: str,
 
 
 def _clean_headline(text: str) -> str:
+    text = strip_site_boilerplate(text.strip())
     text = strip_dangling_vowel_signs(_TE_HEADLINE_STRIP.sub("", text.strip()))
     text = _EN_HEADLINE_STRIP.sub("", text.strip())
     text = re.sub(r"\s+", " ", text).strip()
@@ -168,10 +228,6 @@ def _clean_headline(text: str) -> str:
     if text and text[-1] in ".!?" and word_count(text) > 4:
         text = text[:-1]
     return text
-
-
-def _contains_place(text: str, place: str) -> bool:
-    return place.lower() in text.lower()
 
 
 def _source_only(facts: Sequence[Any]) -> bool:
